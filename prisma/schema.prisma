@@ -1,0 +1,310 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  STAFF
+  ORGANIZER
+  ADMIN
+}
+
+enum UserType {
+  STUDENT
+  STAFF
+  ALUMNI
+  EXTERNAL
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TargetAudience {
+  UNIVERSITY_WIDE
+  FACULTY
+  DEPARTMENT
+  INTEREST
+}
+
+enum EventFormat {
+  PHYSICAL
+  ONLINE
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+  ATTENDED
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  REGISTRATION_CONFIRMATION
+  REMINDER_24H
+  REMINDER_1H
+  STARTING_NOW
+  EVENT_UPDATE
+  EVENT_CANCELLED
+}
+
+enum DeliveryStatus {
+  QUEUED
+  PROCESSING
+  SENT
+  DELIVERED
+  BOUNCED
+  FAILED
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  name               String
+  email              String     @unique
+  passwordHash       String
+  role               Role       @default(STUDENT)
+  userType           UserType   @default(STUDENT)
+  matricOrStaffId    String?
+  faculty            String?
+  department         String?
+  phone              String?
+  avatarUrl          String?
+  emailVerified      Boolean    @default(false)
+  verificationToken  String?
+  resetToken         String?
+  resetTokenExpires  DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  applications       OrganiserApplication[]
+  organizedEvents    Event[]                 @relation("OrganizerEvents")
+  registrations      Registration[]
+  bookmarks          Bookmark[]
+  interests          UserInterest[]
+  notificationPrefs  NotificationPreferences?
+  inAppNotifications InAppNotification[]
+  feedbacks          EventFeedback[]
+  auditLogs          AuditLog[]
+}
+
+model OrganiserApplication {
+  id               String            @id @default(cuid())
+  userId           String
+  organizationName String
+  department       String?
+  faculty          String?
+  reason           String
+  status           ApplicationStatus @default(PENDING)
+  adminFeedback    String?
+  reviewedBy       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  color       String?
+
+  events      Event[]
+  userInterests UserInterest[]
+}
+
+model Event {
+  id                    String         @id @default(cuid())
+  title                 String
+  slug                  String         @unique
+  description           String
+  bannerUrl             String?
+  categoryId            String
+  organizerId           String
+  organizerName         String
+  organizerContact      String
+  targetAudience        TargetAudience @default(UNIVERSITY_WIDE)
+  targetFaculty         String?
+  targetDepartment      String?
+  startTime             DateTime
+  endTime               DateTime
+  timezone              String         @default("Africa/Lagos")
+  format                EventFormat    @default(PHYSICAL)
+  
+  // Location Details
+  venueName             String?
+  buildingHall          String?
+  roomNumber            String?
+  campusArea            String?
+  address               String?
+  landmark              String?
+  latitude              Float?
+  longitude             Float?
+  directionsUrl         String?
+  onlinePlatform        String?
+  onlineJoinLink        String?
+  restrictJoinLink      Boolean        @default(true)
+
+  // Registration & Rules
+  requiresRegistration  Boolean        @default(true)
+  capacity              Int?
+  registrationDeadline  DateTime?
+  accessibilityInfo     String?
+  arrivalInstructions   String?
+  status                EventStatus    @default(DRAFT)
+  approvalFeedback      String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  category              Category       @relation(fields: [categoryId], references: [id])
+  organizer             User           @relation("OrganizerEvents", fields: [organizerId], references: [id])
+  registrations         Registration[]
+  bookmarks             Bookmark[]
+  feedbacks             EventFeedback[]
+  notifications         InAppNotification[]
+  outboxItems           EmailOutbox[]
+}
+
+model Registration {
+  id            String             @id @default(cuid())
+  eventId       String
+  userId        String
+  referenceCode String             @unique
+  status        RegistrationStatus @default(CONFIRMED)
+  registeredAt  DateTime           @default(now())
+  attendedAt    DateTime?
+
+  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model UserInterest {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+}
+
+model NotificationPreferences {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  emailAnnouncements Boolean  @default(true)
+  reminder24h        Boolean  @default(true)
+  reminder1h         Boolean  @default(true)
+  eventStartingNow   Boolean  @default(true)
+  eventChanges       Boolean  @default(true)
+  unsubscribeToken   String   @unique
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InAppNotification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  eventId   String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+}
+
+model EmailOutbox {
+  id               String           @id @default(cuid())
+  recipientEmail   String
+  recipientName    String
+  subject          String
+  bodyHtml         String
+  bodyText         String
+  notificationType NotificationType
+  eventId          String?
+  userId           String?
+  scheduledFor     DateTime
+  status           DeliveryStatus   @default(QUEUED)
+  attemptCount     Int              @default(0)
+  maxAttempts      Int              @default(3)
+  lastAttemptAt    DateTime?
+  errorMessage     String?
+  idempotencyKey   String           @unique
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  event            Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+}
+
+model EmailSuppression {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+model EventFeedback {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
