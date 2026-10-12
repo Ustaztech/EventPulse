@@ -50,7 +50,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         <div className="relative">
           <div className="absolute -inset-3 bg-gradient-to-r from-royal via-teal to-turquoise rounded-3xl opacity-40 blur-xl animate-pulse" />
           <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-3xl shadow-2xl flex items-center justify-center">
-            <BrandLogo size="lg" />
+            <BrandLogo size="lg" disableLink={true} isDark={true} />
           </div>
         </div>
 

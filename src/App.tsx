@@ -27,15 +27,15 @@ export function App() {
 
   return (
     <ThemeProvider>
-      <AuthProvider>
-        {initialLoading && (
-          <LoadingScreen 
-            message="Connecting to NSUK Event Hub..."
-            isInitialBoot
-            onFinish={() => setInitialLoading(false)}
-          />
-        )}
-        <Router>
+      <Router>
+        <AuthProvider>
+          {initialLoading && (
+            <LoadingScreen 
+              message="Connecting to NSUK Event Hub..."
+              isInitialBoot
+              onFinish={() => setInitialLoading(false)}
+            />
+          )}
           <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-navy-dark dark:text-slate-100 transition-colors duration-200">
             <Navbar />
             <main className="flex-1">
@@ -70,8 +70,8 @@ export function App() {
             </main>
             <Footer />
           </div>
-        </Router>
-      </AuthProvider>
+        </AuthProvider>
+      </Router>
     </ThemeProvider>
   );
 }

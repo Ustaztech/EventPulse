@@ -6,6 +6,7 @@ interface BrandLogoProps {
   showTagline?: boolean;
   isDark?: boolean;
   className?: string;
+  disableLink?: boolean;
 }
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
@@ -13,6 +14,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   showTagline = true,
   isDark = false,
   className = '',
+  disableLink = false,
 }) => {
   const iconSizes = {
     sm: 'w-8 h-8',
@@ -35,8 +37,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     xl: 'text-sm',
   };
 
-  return (
-    <Link to="/" className={`inline-flex items-center gap-3 select-none group ${className}`}>
+  const content = (
+    <>
       {/* Dynamic SVG Icon matching the EventPulse branding */}
       <div className={`relative ${iconSizes[size]} transition-transform duration-300 group-hover:scale-105 flex-shrink-0`}>
         <svg
@@ -116,6 +118,20 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           </span>
         )}
       </div>
+    </>
+  );
+
+  if (disableLink) {
+    return (
+      <div className={`inline-flex items-center gap-3 select-none group ${className}`}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link to="/" className={`inline-flex items-center gap-3 select-none group ${className}`}>
+      {content}
     </Link>
   );
 };
