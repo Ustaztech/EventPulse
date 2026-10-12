@@ -22,12 +22,14 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { OutboxInspectorModal } from '../components/OutboxInspectorModal';
 import { Role } from '../lib/types';
+import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
 
 export const AdminDashboard: React.FC = () => {
   const { currentUser, refreshUserData } = useAuth();
   const [activeTab, setActiveTab] = useState<'applications' | 'approvals' | 'users' | 'outbox' | 'logs'>('applications');
   const [outboxModalOpen, setOutboxModalOpen] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [adminNotice, setAdminNotice] = useState<string | null>(null);
 
   if (!currentUser || currentUser.role !== 'ADMIN') {
     return (
@@ -56,8 +58,6 @@ export const AdminDashboard: React.FC = () => {
 
   const outboxJobs = db.getOutboxJobs();
   const logs = db.getLogs();
-
-  const [adminNotice, setAdminNotice] = useState<string | null>(null);
 
   const handleApproveApplication = (appId: string) => {
     db.reviewApplication(appId, 'APPROVED', currentUser.name);
@@ -89,117 +89,71 @@ export const AdminDashboard: React.FC = () => {
     setAdminNotice(`User privileges updated to ${newRole}.`);
   };
 
+  const navItems: DashboardNavItem[] = [
+    {
+      id: 'applications',
+      label: 'Organiser Applications',
+      icon: ShieldCheck,
+      badge: pendingApps.length,
+      badgeVariant: pendingApps.length > 0 ? 'amber' : 'default',
+    },
+    {
+      id: 'approvals',
+      label: 'Event Approvals',
+      icon: Calendar,
+      badge: pendingEvents.length,
+      badgeVariant: pendingEvents.length > 0 ? 'rose' : 'default',
+    },
+    {
+      id: 'users',
+      label: 'User Accounts & Roles',
+      icon: Users,
+      badge: users.length,
+      badgeVariant: 'royal',
+    },
+    {
+      id: 'outbox',
+      label: 'Email Outbox Queue',
+      icon: Mail,
+      badge: outboxJobs.length,
+      badgeVariant: 'teal',
+    },
+    {
+      id: 'logs',
+      label: 'Security & Audit Logs',
+      icon: Activity,
+      badge: logs.length,
+      badgeVariant: 'default',
+    },
+  ];
+
+  const quickStats = [
+    { label: 'Users', value: users.length },
+    { label: 'Org Apps', value: pendingApps.length },
+    { label: 'Pending Evts', value: pendingEvents.length },
+    { label: 'Outbox', value: outboxJobs.length },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-navy-dark via-navy to-royal rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-turquoise text-navy-dark">
-              NSUK Administrative Console
-            </span>
-            <span className="text-xs text-slate-300">System Oversight & Moderation</span>
+    <>
+      <DashboardLayout
+        title="Admin Control Center"
+        subtitle="Supervise campus organizer accreditation, verify event proposals, monitor email queues, and inspect audit logs."
+        badgeText="NSUK Administrative Console"
+        badgeColor="purple"
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id)}
+        navItems={navItems}
+        quickStats={quickStats}
+      >
+        {adminNotice && (
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between text-xs font-bold shadow-xs">
+            <span>{adminNotice}</span>
+            <button type="button" onClick={() => setAdminNotice(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black mt-2">
-            Administrator Center
-          </h1>
-          <p className="text-xs text-slate-300 mt-1">
-            Supervise campus organizer accreditation, verify event proposals, monitor email queues, and inspect audit logs.
-          </p>
-        </div>
-
-        {/* Global Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{users.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Users</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{pendingApps.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Org Apps</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{pendingEvents.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Pending Evts</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{outboxJobs.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Outbox Jobs</span>
-          </div>
-        </div>
-      </div>
-
-      {adminNotice && (
-        <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-900 border border-emerald-200 flex items-center justify-between text-xs font-bold shadow-xs">
-          <span>{adminNotice}</span>
-          <button type="button" onClick={() => setAdminNotice(null)} className="text-slate-400 hover:text-slate-600">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-navy-light/40 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('applications')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'applications'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Organiser Applications ({pendingApps.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('approvals')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'approvals'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>Event Approvals ({pendingEvents.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'users'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>User Accounts & Roles ({users.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('outbox')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'outbox'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Mail className="w-4 h-4" />
-          <span>Email Outbox Queue ({outboxJobs.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('logs')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'logs'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>Audit Logs ({logs.length})</span>
-        </button>
-      </div>
+        )}
 
       {/* Tab 1: Organiser Applications */}
       {activeTab === 'applications' && (
@@ -486,12 +440,14 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      </DashboardLayout>
+
       {/* Outbox Inspector Modal */}
       <OutboxInspectorModal
         isOpen={outboxModalOpen}
         onClose={() => setOutboxModalOpen(false)}
       />
-    </div>
+    </>
   );
 };
 export default AdminDashboard;

@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { Registration, Event } from '../lib/types';
+import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
 import { DigitalTicketModal } from '../components/DigitalTicketModal';
 
 export const StudentDashboard: React.FC = () => {
@@ -110,99 +111,59 @@ export const StudentDashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const navItems: DashboardNavItem[] = [
+    {
+      id: 'registrations',
+      label: 'My Registrations',
+      icon: Calendar,
+      badge: activeRegistrations.length,
+      badgeVariant: 'royal',
+    },
+    {
+      id: 'bookmarks',
+      label: 'Saved Events',
+      icon: BookmarkIcon,
+      badge: bookmarkedEvents.length,
+      badgeVariant: 'teal',
+    },
+    {
+      id: 'history',
+      label: 'Attendance Records',
+      icon: Award,
+      badge: attendedRegistrations.length,
+      badgeVariant: 'emerald',
+    },
+    ...(currentUser.role !== 'ORGANIZER' && currentUser.role !== 'ADMIN'
+      ? [
+          {
+            id: 'apply',
+            label: 'Apply as Organiser',
+            icon: Sparkles,
+            badge: 'Portal',
+            badgeVariant: 'amber' as const,
+          },
+        ]
+      : []),
+  ];
+
+  const quickStats = [
+    { label: 'Active', value: activeRegistrations.length },
+    { label: 'Attended', value: attendedRegistrations.length },
+    { label: 'Saved', value: bookmarkedEvents.length },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
-      {/* Profile Overview Banner */}
-      <div className="bg-gradient-to-r from-navy via-royal to-teal rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <img
-            src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-            alt={currentUser.name}
-            className="w-16 h-16 rounded-2xl object-cover ring-4 ring-white/20 shadow-md"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black">{currentUser.name}</h1>
-              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-turquoise text-navy-dark">
-                {currentUser.role}
-              </span>
-            </div>
-            <p className="text-xs text-blue-100 mt-1">
-              {currentUser.matricOrStaffId || 'NSUK Academic Community'} &bull; {currentUser.department || 'Faculty of Science'}
-            </p>
-            <p className="text-[11px] text-blue-200">{currentUser.email}</p>
-          </div>
-        </div>
-
-        {/* Quick Stats Strip */}
-        <div className="flex items-center gap-3">
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{activeRegistrations.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Active Passes</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{attendedRegistrations.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Attended</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{bookmarkedEvents.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Bookmarks</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-navy-light/40 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('registrations')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'registrations'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>My Registrations ({activeRegistrations.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('bookmarks')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'bookmarks'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <BookmarkIcon className="w-4 h-4" />
-          <span>Saved Events ({bookmarkedEvents.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'history'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Award className="w-4 h-4" />
-          <span>Attendance History ({attendedRegistrations.length})</span>
-        </button>
-
-        {currentUser.role !== 'ORGANIZER' && currentUser.role !== 'ADMIN' && (
-          <button
-            onClick={() => setActiveTab('apply')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'apply'
-                ? 'bg-teal text-white shadow-xs'
-                : 'text-teal dark:text-turquoise hover:bg-teal-50 dark:hover:bg-teal-950/30'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Apply as Event Organiser</span>
-          </button>
-        )}
-      </div>
+    <>
+      <DashboardLayout
+        title={`${currentUser.name.split(' ')[0]}'s Portal`}
+        subtitle="Manage your personal event registrations, attendance records, and campus activities."
+        badgeText={currentUser.role === 'STAFF' ? 'Staff Portal' : 'Student Portal'}
+        badgeColor="royal"
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id)}
+        navItems={navItems}
+        quickStats={quickStats}
+      >
 
       {/* Tab 1: My Registered Events */}
       {activeTab === 'registrations' && (
@@ -408,15 +369,16 @@ export const StudentDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Digital Ticket Modal */}
-      {selectedReg && (
-        <DigitalTicketModal
-          registration={selectedReg}
-          isOpen={!!selectedReg}
-          onClose={() => setSelectedReg(null)}
-        />
-      )}
-    </div>
+        {/* Digital Ticket Modal */}
+        {selectedReg && (
+          <DigitalTicketModal
+            registration={selectedReg}
+            isOpen={!!selectedReg}
+            onClose={() => setSelectedReg(null)}
+          />
+        )}
+      </DashboardLayout>
+    </>
   );
 };
 export default StudentDashboard;

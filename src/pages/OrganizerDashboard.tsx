@@ -23,6 +23,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { Event, TargetAudience, EventFormat } from '../lib/types';
 import { CATEGORY_DEFINITIONS, POPULAR_NSUK_VENUES, NSUK_CAMPUSES, NSUK_FACULTIES } from '../lib/nsuk-data';
+import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
 
 export const OrganizerDashboard: React.FC = () => {
   const { currentUser, refreshUserData } = useAuth();
@@ -243,92 +244,54 @@ export const OrganizerDashboard: React.FC = () => {
     setTimeout(() => setBroadcastSuccess(false), 3000);
   };
 
+  const navItems: DashboardNavItem[] = [
+    {
+      id: 'events',
+      label: 'My Events',
+      icon: Calendar,
+      badge: myEvents.length,
+      badgeVariant: 'royal',
+    },
+    {
+      id: 'create',
+      label: 'Create New Event',
+      icon: PlusCircle,
+      badge: 'Draft',
+      badgeVariant: 'teal',
+    },
+    {
+      id: 'scanner',
+      label: 'Attendance Scanner',
+      icon: QrCode,
+      badge: 'Live',
+      badgeVariant: 'amber',
+    },
+    {
+      id: 'broadcast',
+      label: 'Broadcast Notice',
+      icon: Send,
+      badge: 'Alert',
+      badgeVariant: 'royal',
+    },
+  ];
+
+  const quickStats = [
+    { label: 'Events', value: myEvents.length },
+    { label: 'Registered', value: totalRegistrations },
+    { label: 'Pending', value: pendingApprovals },
+  ];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
-      {/* Top Banner & Quick Metrics */}
-      <div className="bg-gradient-to-r from-navy via-navy-light to-teal rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-turquoise text-navy-dark">
-              Organiser Workspace
-            </span>
-            <span className="text-xs text-slate-300">NSUK Directorate & Department Portals</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black mt-2">
-            Welcome, {currentUser.name}
-          </h1>
-          <p className="text-xs text-slate-300 mt-1">
-            Publish university events, track registrations, verify attendee passes, and broadcast live alerts.
-          </p>
-        </div>
-
-        {/* Quick Numbers */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{myEvents.length}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Events</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{totalRegistrations}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Registrations</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20 text-center">
-            <span className="text-xl font-black block">{pendingApprovals}</span>
-            <span className="text-[10px] text-slate-200 uppercase font-semibold">Pending</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-navy-light/40 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('events')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'events'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>My Events ({myEvents.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('create')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'create'
-              ? 'bg-teal text-white shadow-xs'
-              : 'text-teal dark:text-turquoise hover:bg-teal-50 dark:hover:bg-teal-950/30'
-          }`}
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Create New Event</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('scanner')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'scanner'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <QrCode className="w-4 h-4" />
-          <span>Attendance Scanner</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('broadcast')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'broadcast'
-              ? 'bg-royal text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/30'
-          }`}
-        >
-          <Send className="w-4 h-4" />
-          <span>Broadcast Notice</span>
-        </button>
-      </div>
+    <DashboardLayout
+      title={`Organiser: ${currentUser.name}`}
+      subtitle="Publish university events, track registrations, verify attendee passes, and broadcast live alerts."
+      badgeText="Organiser Workspace"
+      badgeColor="teal"
+      activeTab={activeTab}
+      onTabChange={(id) => setActiveTab(id)}
+      navItems={navItems}
+      quickStats={quickStats}
+    >
 
       {/* Tab 1: Manage My Events */}
       {activeTab === 'events' && (
@@ -827,7 +790,7 @@ export const OrganizerDashboard: React.FC = () => {
           </form>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 };
 export default OrganizerDashboard;
