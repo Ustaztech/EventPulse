@@ -67,6 +67,7 @@ export const ThemeToggle: React.FC<{ className?: string; showLabel?: boolean }> 
 
   return (
     <button
+      id="theme-toggle-btn"
       type="button"
       onClick={toggleTheme}
       className={`relative inline-flex items-center gap-2 p-2 rounded-xl border transition-all duration-200 ${
