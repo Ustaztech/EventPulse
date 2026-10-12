@@ -31,7 +31,7 @@ export function App() {
         <AuthProvider>
           {initialLoading && (
             <LoadingScreen 
-              message="Connecting to NSUK Event Hub..."
+              message="Initializing EventPulse Campus Hub..."
               isInitialBoot
               onFinish={() => setInitialLoading(false)}
             />

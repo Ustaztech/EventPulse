@@ -13,22 +13,20 @@ export const Footer: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <BrandLogo size="lg" isDark={true} />
             <p className="text-sm text-slate-400 max-w-sm leading-relaxed mt-3">
-              EventPulse is the official campus event management and intelligent notification system for 
-              <strong> Nasarawa State University, Keffi (NSUK)</strong>. Empowering students, faculty, and organizers 
-              with real-time updates and seamless attendance.
+              EventPulse is an independent, next-generation campus event management and intelligent notification system. Built for university communities, featuring Nasarawa State University, Keffi (NSUK) as a flagship pilot case study.
             </p>
             <div className="pt-2 text-xs text-slate-400 space-y-2">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-turquoise shrink-0" />
-                <span>Main Campus, Along Keffi-Akwanga Expressway, Keffi, Nasarawa State</span>
+                <span>Keffi-Akwanga Corridor, Nasarawa State, Nigeria</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-teal-accent shrink-0" />
-                <span>eventpulse@nsuk.edu.ng &bull; info@nsuk.edu.ng</span>
+                <span>support@eventpulse.com.ng</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-royal shrink-0" />
-                <span>+234 (0) 47 220 184 / ICT Helpdesk Ext: 402</span>
+                <span>+234 (0) 700 EVENTPULSE</span>
               </div>
             </div>
           </div>
@@ -141,10 +139,10 @@ export const Footer: React.FC = () => {
       <div className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>
-            &copy; {new Date().getFullYear()} Nasarawa State University, Keffi (NSUK). All rights reserved.
+            &copy; {new Date().getFullYear()} EventPulse. Campus Event Management System (NSUK Pilot Case Study). All rights reserved.
           </p>
           <p className="flex items-center gap-1.5 text-slate-400">
-            <span>Built with excellence for NSUK Academic Community</span>
+            <span>Stay Connected. Never Miss an Event.</span>
           </p>
         </div>
       </div>

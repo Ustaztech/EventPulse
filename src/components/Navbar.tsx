@@ -47,7 +47,7 @@ export const Navbar: React.FC = () => {
   const otherNavLinks = [
     { label: 'Explore Events', path: '/explore' },
     { label: 'Calendar', path: '/explore?view=calendar' },
-    { label: 'About NSUK', path: '/about' },
+    { label: 'About Us', path: '/about' },
     { label: 'Contact', path: '/contact' },
   ];
 
@@ -60,14 +60,14 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-navy/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors duration-200">
-      {/* Top University Announcement Bar */}
+      {/* Top Brand Announcement Bar */}
       <div className="bg-gradient-to-r from-navy via-royal to-teal text-white py-1.5 px-4 text-xs font-medium">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="bg-turquoise text-navy-dark px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px]">
-              NSUK Portal
+              EventPulse
             </span>
-            <span>Nasarawa State University, Keffi — Campus Event Management & Notification System</span>
+            <span>Campus Event Management & Smart Notification Platform</span>
           </div>
 
           {/* User Account Elevation Indicator - Strictly restricted to yahayazaid2021@gmail.com */}
@@ -130,12 +130,12 @@ export const Navbar: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise">
-                            NSUK Campus Hub
+                            Discovery Hub
                           </span>
-                          <span className="text-xs text-slate-400">Official Event Portals</span>
+                          <span className="text-xs text-slate-400">Campus Event Directory</span>
                         </div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
-                          Nasarawa State University, Keffi
+                          EventPulse &bull; Campus Venues & Tracks
                         </h4>
                       </div>
                       <Link
@@ -346,30 +346,14 @@ export const Navbar: React.FC = () => {
 
             {currentUser ? (
               <>
-                {/* In-App Notifications Bell */}
+                {/* Direct Dashboard Link */}
                 <Link
-                  to="/notifications"
-                  className="relative p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  title="Notification Centre"
+                  to={getDashboardPath()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-royal dark:text-turquoise bg-blue-50 dark:bg-royal/20 border border-blue-200 dark:border-royal/40 hover:bg-blue-100 dark:hover:bg-royal/30 transition-all shadow-xs"
                 >
-                  <Bell className="w-5 h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1.5 right-1.5 bg-rose-500 text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-xs">
-                      {unreadCount}
-                    </span>
-                  )}
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Dashboard</span>
                 </Link>
-
-                {/* Organizer / Admin quick create */}
-                {(currentUser.role === 'ORGANIZER' || currentUser.role === 'ADMIN') && (
-                  <Link
-                    to="/dashboard/organizer?action=new"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900 transition-all shadow-xs"
-                  >
-                    <PlusCircle className="w-4 h-4 text-teal dark:text-teal-400" />
-                    <span>Create Event</span>
-                  </Link>
-                )}
 
                 {/* User Profile Dropdown Button */}
                 <div className="relative">

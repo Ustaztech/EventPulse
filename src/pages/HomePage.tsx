@@ -61,9 +61,9 @@ export const HomePage: React.FC = () => {
             {/* Pill Tag */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white dark:bg-navy-card border border-slate-200 dark:border-slate-700 shadow-sm text-xs font-bold text-slate-800 dark:text-slate-200 animate-in fade-in">
               <span className="w-2 h-2 rounded-full bg-teal-accent animate-ping" />
-              <span className="text-royal dark:text-turquoise font-extrabold">NSUK EventPulse</span>
+              <span className="text-royal dark:text-turquoise font-extrabold">EventPulse</span>
               <span className="text-slate-300 dark:text-slate-600">&bull;</span>
-              <span className="text-slate-600 dark:text-slate-300">Nasarawa State University, Keffi</span>
+              <span className="text-slate-600 dark:text-slate-300">Campus Event Discovery & Notification Platform</span>
             </div>
 
             {/* Main Headline */}
@@ -76,7 +76,7 @@ export const HomePage: React.FC = () => {
 
             {/* Sub-headline */}
             <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              The official centralized platform for campus symposiums, faculty lectures, hackathons, sports championships, and cultural festivities across all NSUK campuses.
+              The intelligent campus platform for discovering academic defenses, faculty symposiums, athletic tournaments, and student life activities (NSUK Pilot Case Study).
             </p>
 
             {/* Global Search Bar */}

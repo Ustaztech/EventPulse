@@ -16,7 +16,8 @@ import {
   User as UserIcon,
   Sparkles,
   ExternalLink,
-  ChevronLeft
+  ChevronLeft,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { ThemeToggle } from '../lib/ThemeContext';
@@ -273,14 +274,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <Link
               to="/notifications"
               onClick={() => setMobileSidebarOpen(false)}
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-light/20 transition-all"
+              className="flex items-center justify-between px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-light/20 transition-all group"
             >
               <div className="flex items-center gap-2.5">
-                <Bell className="w-4 h-4 text-slate-400 shrink-0" />
-                <span>Notification Center</span>
+                <Mail className="w-4 h-4 text-royal dark:text-turquoise shrink-0" />
+                <span className="font-bold">Campus Mailbox</span>
               </div>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
                   {unreadCount}
                 </span>
               )}
@@ -319,7 +320,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </button>
 
         <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 pt-1">
-          NSUK EventPulse &bull; v1.0.0
+          EventPulse &bull; Campus Event Management v1.0.0
         </p>
       </div>
     </div>
@@ -399,7 +400,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${getHeaderBadgeClasses()}`}>
                     {badgeText}
                   </span>
-                  <span className="text-xs text-slate-300">Nasarawa State University, Keffi</span>
+                  <span className="text-xs text-slate-300">EventPulse Campus Hub</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
                   {title}

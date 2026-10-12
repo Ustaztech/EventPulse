@@ -57,7 +57,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         {/* Brand Tagline & Institutional Affiliation */}
         <div className="space-y-1.5">
           <p className="text-xs font-black tracking-widest uppercase text-turquoise">
-            Nasarawa State University, Keffi
+            Campus Event Hub
           </p>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
             Stay Connected. Never Miss an Event.

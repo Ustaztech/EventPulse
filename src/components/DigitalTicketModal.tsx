@@ -55,13 +55,13 @@ export const DigitalTicketModal: React.FC<DigitalTicketModalProps> = ({
             <div className="flex items-start justify-between border-b border-slate-200 pb-4">
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-royal bg-blue-100/70 px-2.5 py-0.5 rounded-full">
-                  Official Admission Pass
+                  Digital Event Pass
                 </span>
                 <h4 className="font-extrabold text-slate-900 text-lg mt-1.5 leading-snug">
                   {currentEvent?.title || 'Campus Event'}
                 </h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Organized by {currentEvent?.organizerName || 'NSUK Administration'}
+                  Organized by {currentEvent?.organizerName || 'Event Organizer'}
                 </p>
               </div>
               <div className="text-right shrink-0 ml-3">
@@ -125,7 +125,7 @@ export const DigitalTicketModal: React.FC<DigitalTicketModalProps> = ({
             <div className="pt-5 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200/80 mt-4">
               <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
                 <QRCodeSVG
-                  value={`NSUK_EVENTPULSE:${registration.referenceCode}:${registration.userId}:${currentEvent?.id}`}
+                  value={`EVENTPULSE:${registration.referenceCode}:${registration.userId}:${currentEvent?.id}`}
                   size={100}
                   level="H"
                   includeMargin={false}

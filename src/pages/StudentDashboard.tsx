@@ -14,17 +14,19 @@ import {
   Award,
   Bell,
   ArrowRight,
-  Send
+  Send,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { Registration, Event } from '../lib/types';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
 import { DigitalTicketModal } from '../components/DigitalTicketModal';
+import { GmailMailingSystem } from '../components/GmailMailingSystem';
 
 export const StudentDashboard: React.FC = () => {
-  const { currentUser, refreshUserData } = useAuth();
-  const [activeTab, setActiveTab] = useState<'registrations' | 'bookmarks' | 'history' | 'apply'>('registrations');
+  const { currentUser, unreadCount, refreshUserData } = useAuth();
+  const [activeTab, setActiveTab] = useState<'registrations' | 'bookmarks' | 'history' | 'mail' | 'apply'>('registrations');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
 
   // Application form state
@@ -132,6 +134,13 @@ export const StudentDashboard: React.FC = () => {
       icon: Award,
       badge: attendedRegistrations.length,
       badgeVariant: 'emerald',
+    },
+    {
+      id: 'mail',
+      label: 'Campus Mailbox',
+      icon: Mail,
+      badge: unreadCount > 0 ? unreadCount : undefined,
+      badgeVariant: 'rose',
     },
     ...(currentUser.role !== 'ORGANIZER' && currentUser.role !== 'ADMIN'
       ? [
@@ -367,6 +376,11 @@ export const StudentDashboard: React.FC = () => {
             </form>
           )}
         </div>
+      )}
+
+      {/* Tab 4: Campus Mailbox (Gmail-style) */}
+      {activeTab === 'mail' && (
+        <GmailMailingSystem initialFolder="inbox" />
       )}
 
         {/* Digital Ticket Modal */}

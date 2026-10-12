@@ -380,7 +380,7 @@ class EventPulseStorage {
     this.set(STORAGE_KEYS.EVENTS, events);
 
     // Create unique admission pass
-    const refCode = `NSUK-EP-${Math.floor(10000 + Math.random() * 90000)}`;
+    const refCode = `EP-${Math.floor(10000 + Math.random() * 90000)}`;
     const newReg: Registration = {
       id: `reg-${Date.now()}`,
       eventId,
@@ -413,7 +413,7 @@ class EventPulseStorage {
         <div style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
           <div style="background: linear-gradient(135deg, #1E40AF, #0D9488); padding: 24px; color: #ffffff; text-align: center;">
             <h1 style="margin: 0; font-size: 24px; font-weight: bold;">EventPulse</h1>
-            <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">Nasarawa State University, Keffi</p>
+            <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">Campus Event Notification Engine</p>
           </div>
           <div style="padding: 24px;">
             <p style="font-size: 16px; color: #1e293b; margin-top: 0;">Dear <strong>${user.name}</strong>,</p>
@@ -425,14 +425,14 @@ class EventPulseStorage {
                 <strong style="font-size: 16px; color: #1E40AF;">${refCode}</strong>
               </div>
               <p style="margin: 4px 0; font-size: 13px; color: #334155;"><strong>Date & Time:</strong> ${new Date(event.startTime).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })} WAT</p>
-              <p style="margin: 4px 0; font-size: 13px; color: #334155;"><strong>Venue:</strong> ${event.venueName || 'Online'} (${event.campusArea || 'NSUK'})</p>
+              <p style="margin: 4px 0; font-size: 13px; color: #334155;"><strong>Venue:</strong> ${event.venueName || 'Online'} (${event.campusArea || 'Main Campus'})</p>
               ${event.landmark ? `<p style="margin: 4px 0; font-size: 12px; color: #64748b;"><strong>Landmark:</strong> ${event.landmark}</p>` : ''}
             </div>
 
             <p style="font-size: 13px; color: #64748b;">Please present this email or your digital pass in the EventPulse app at entrance check-in.</p>
           </div>
           <div style="background: #f1f5f9; padding: 16px; text-align: center; font-size: 11px; color: #64748b;">
-            Nasarawa State University, Keffi &bull; Stay Connected. Never Miss an Event.
+            EventPulse &bull; Stay Connected. Never Miss an Event. &bull; support@eventpulse.com.ng
           </div>
         </div>
       `,
@@ -621,9 +621,9 @@ class EventPulseStorage {
       this.enqueueOutboxJob({
         recipientEmail: u.email,
         recipientName: u.name,
-        subject: `New NSUK Event: ${event.title}`,
+        subject: `New Campus Event: ${event.title}`,
         bodyHtml: `<h3>${event.title}</h3><p>${event.description}</p><p><strong>Venue:</strong> ${event.venueName || 'Online'}</p>`,
-        bodyText: `New NSUK Event: ${event.title} - ${event.description}`,
+        bodyText: `New Campus Event: ${event.title} - ${event.description}`,
         notificationType: 'ANNOUNCEMENT',
         eventId: event.id,
         userId: u.id,
@@ -716,7 +716,7 @@ class EventPulseStorage {
       this.addInAppNotification({
         userId: app.userId,
         title: 'Organiser Application Approved!',
-        message: 'You have been granted access to the NSUK EventPulse Organiser Dashboard.',
+        message: 'You have been granted access to the EventPulse Organiser Workspace.',
         type: 'ANNOUNCEMENT'
       });
     }

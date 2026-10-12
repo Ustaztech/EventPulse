@@ -23,6 +23,7 @@ import { db } from '../lib/storage';
 import { OutboxInspectorModal } from '../components/OutboxInspectorModal';
 import { Role } from '../lib/types';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
+import { GmailMailingSystem } from '../components/GmailMailingSystem';
 
 export const AdminDashboard: React.FC = () => {
   const { currentUser, refreshUserData } = useAuth();
@@ -113,7 +114,7 @@ export const AdminDashboard: React.FC = () => {
     },
     {
       id: 'outbox',
-      label: 'Email Outbox Queue',
+      label: 'Campus Mail & Outbox',
       icon: Mail,
       badge: outboxJobs.length,
       badgeVariant: 'teal',
@@ -333,66 +334,9 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Email Outbox Inspector */}
+      {/* Tab 4: Campus Mail System & Outbox */}
       {activeTab === 'outbox' && (
-        <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-lg">Transactional Outbox Queue</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Inspect enqueued notifications, view retry backoff attempts, and preview raw responsive HTML templates.
-              </p>
-            </div>
-            <button
-              onClick={() => setOutboxModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-royal text-white font-bold text-xs hover:bg-royal-hover shadow-xs self-start"
-            >
-              <Mail className="w-4 h-4" />
-              <span>Open Detailed Queue Inspector</span>
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-navy-dark text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold border-b border-slate-200 dark:border-navy-light/40">
-                <tr>
-                  <th className="py-3 px-4">Recipient</th>
-                  <th className="py-3 px-4">Subject & Type</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Attempts</th>
-                  <th className="py-3 px-4">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-navy-light/30">
-                {outboxJobs.slice(0, 15).map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50/70 dark:hover:bg-navy-light/20">
-                    <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                      {job.recipientEmail}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white truncate max-w-xs">{job.subject}</div>
-                      <span className="text-[10px] text-royal dark:text-turquoise font-mono">{job.notificationType}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                        job.status === 'DELIVERED' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' :
-                        job.status === 'QUEUED' ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
-                      }`}>
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono">
-                      {job.attemptCount}/{job.maxAttempts}
-                    </td>
-                    <td className="py-3 px-4 text-slate-400">
-                      {new Date(job.createdAt).toLocaleTimeString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <GmailMailingSystem initialFolder="outbox" />
       )}
 
       {/* Tab 5: Audit Logs */}

@@ -17,20 +17,22 @@ import {
   Check,
   ChevronRight,
   Eye,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { Event, TargetAudience, EventFormat } from '../lib/types';
 import { CATEGORY_DEFINITIONS, POPULAR_NSUK_VENUES, NSUK_CAMPUSES, NSUK_FACULTIES } from '../lib/nsuk-data';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
+import { GmailMailingSystem } from '../components/GmailMailingSystem';
 
 export const OrganizerDashboard: React.FC = () => {
   const { currentUser, refreshUserData } = useAuth();
   const [searchParams] = useSearchParams();
   const actionParam = searchParams.get('action');
 
-  const [activeTab, setActiveTab] = useState<'events' | 'create' | 'scanner' | 'broadcast'>(
+  const [activeTab, setActiveTab] = useState<'events' | 'create' | 'scanner' | 'broadcast' | 'mail'>(
     actionParam === 'new' ? 'create' : 'events'
   );
 
@@ -272,6 +274,13 @@ export const OrganizerDashboard: React.FC = () => {
       icon: Send,
       badge: 'Alert',
       badgeVariant: 'royal',
+    },
+    {
+      id: 'mail',
+      label: 'Campus Mail & Outbox',
+      icon: Mail,
+      badge: 'Live',
+      badgeVariant: 'teal',
     },
   ];
 
@@ -789,6 +798,11 @@ export const OrganizerDashboard: React.FC = () => {
             </button>
           </form>
         </div>
+      )}
+
+      {/* Tab 5: Event Mail & Outbox System */}
+      {activeTab === 'mail' && (
+        <GmailMailingSystem initialFolder="sent" />
       )}
     </DashboardLayout>
   );
