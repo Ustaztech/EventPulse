@@ -183,7 +183,7 @@ export const AdminDashboard: React.FC = () => {
                         {app.status}
                       </span>
                     </div>
-                    <p className="font-semibold text-royal dark:text-turquoise">Organization: {app.organizationName} ({app.department || 'NSUK'})</p>
+                    <p className="font-semibold text-royal dark:text-turquoise">Organization: {app.organizationName} ({app.department || 'Campus Department'})</p>
                     <p className="text-slate-600 dark:text-slate-300 max-w-xl italic">"{app.reason}"</p>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Submitted: {new Date(app.createdAt).toLocaleDateString()}</span>
                   </div>

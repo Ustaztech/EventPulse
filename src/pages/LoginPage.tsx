@@ -50,13 +50,6 @@ export const LoginPage: React.FC = () => {
     }, 350);
   };
 
-  // Quick fill demo helper
-  const handleDemoFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-  };
-
   return (
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center bg-slate-50 dark:bg-navy-dark py-12 px-4 sm:px-6 transition-colors">
       <div className="max-w-md w-full space-y-6">
@@ -168,36 +161,6 @@ export const LoginPage: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Switcher */}
-          <div className="pt-4 border-t border-slate-100 dark:border-navy-light/40 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 text-center">
-              Quick One-Click Demo Accounts
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleDemoFill('yahayazaid2021@gmail.com', 'NSUK@Admin2026!')}
-                className="p-2 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/30 text-purple-800 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all text-center truncate"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoFill('farouk.organizer@eventpulse.com.ng', 'password123')}
-                className="p-2 rounded-xl border border-teal-200 dark:border-teal-800/60 bg-teal-50/50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300 font-bold hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-all text-center truncate"
-              >
-                Organizer
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoFill('aisha.student@eventpulse.com.ng', 'password123')}
-                className="p-2 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50/50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all text-center truncate"
-              >
-                Student
-              </button>
-            </div>
-          </div>
 
           {/* Sign Up Link */}
           <div className="pt-2 text-center text-xs text-slate-600 dark:text-slate-300">

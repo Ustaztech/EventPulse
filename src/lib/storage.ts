@@ -15,23 +15,23 @@ import {
 import { CATEGORY_DEFINITIONS } from './nsuk-data';
 import { emailService } from './emailService';
 
-// Live production storage keys
+// Production storage keys
 const STORAGE_KEYS = {
-  USERS: 'nsuk_ep_users_live',
-  CURRENT_USER: 'nsuk_ep_current_user_live',
-  EVENTS: 'nsuk_ep_events_live',
-  REGISTRATIONS: 'nsuk_ep_registrations_live',
-  BOOKMARKS: 'nsuk_ep_bookmarks_live',
-  NOTIFICATIONS: 'nsuk_ep_notifications_live',
-  OUTBOX: 'nsuk_ep_outbox_live',
-  APPLICATIONS: 'nsuk_ep_applications_live',
-  LOGS: 'nsuk_ep_logs_live',
-  FEEDBACKS: 'nsuk_ep_feedbacks_live',
-  PREFERENCES: 'nsuk_ep_preferences_live',
-  CATEGORIES: 'nsuk_ep_categories_live'
+  USERS: 'eventpulse_users_prod',
+  CURRENT_USER: 'eventpulse_current_user_prod',
+  EVENTS: 'eventpulse_events_prod',
+  REGISTRATIONS: 'eventpulse_registrations_prod',
+  BOOKMARKS: 'eventpulse_bookmarks_prod',
+  NOTIFICATIONS: 'eventpulse_notifications_prod',
+  OUTBOX: 'eventpulse_outbox_prod',
+  APPLICATIONS: 'eventpulse_applications_prod',
+  LOGS: 'eventpulse_logs_prod',
+  FEEDBACKS: 'eventpulse_feedbacks_prod',
+  PREFERENCES: 'eventpulse_preferences_prod',
+  CATEGORIES: 'eventpulse_categories_prod'
 };
 
-// Official NSUK Categories (Permanent System Infrastructure)
+// Official System Categories
 const SYSTEM_CATEGORIES: Category[] = CATEGORY_DEFINITIONS.map((c, i) => ({
   id: `cat-${i + 1}`,
   name: c.name,
@@ -47,8 +47,8 @@ const SYSTEM_INITIAL_LOGS: AuditLog[] = [
     id: 'log-sys-init',
     action: 'SYSTEM_BOOTSTRAP',
     entityType: 'System',
-    entityId: 'NSUK-EVENTPULSE-CORE',
-    details: 'EventPulse production engine initialized. Waiting for administrator account creation.',
+    entityId: 'EVENTPULSE-CORE',
+    details: 'EventPulse production engine initialized.',
     ipAddress: '102.89.44.12',
     createdAt: new Date().toISOString(),
   }
@@ -78,8 +78,8 @@ class EventPulseStorage {
   public init() {
     if (typeof window === 'undefined') return;
 
-    // Purge old mock data from previous demo sessions
-    const oldKeys = [
+    // Purge legacy mock data and demo storage keys
+    const legacyKeys = [
       'nsuk_ep_users_v1',
       'nsuk_ep_current_user_v1',
       'nsuk_ep_events_v1',
@@ -91,241 +91,47 @@ class EventPulseStorage {
       'nsuk_ep_logs_v1',
       'nsuk_ep_feedbacks_v1',
       'nsuk_ep_preferences_v1',
-      'nsuk_ep_categories_v1'
+      'nsuk_ep_categories_v1',
+      'nsuk_ep_users_live',
+      'nsuk_ep_current_user_live',
+      'nsuk_ep_events_live',
+      'nsuk_ep_registrations_live',
+      'nsuk_ep_bookmarks_live',
+      'nsuk_ep_notifications_live',
+      'nsuk_ep_outbox_live',
+      'nsuk_ep_applications_live',
+      'nsuk_ep_logs_live',
+      'nsuk_ep_feedbacks_live',
+      'nsuk_ep_preferences_live',
+      'nsuk_ep_categories_live'
     ];
-    oldKeys.forEach(k => localStorage.removeItem(k));
+    legacyKeys.forEach(k => localStorage.removeItem(k));
 
-    // Initialize baseline production accounts if not already existing
-    const existingUsers = this.getUsers();
-    const defaultAccounts: User[] = [
-      {
-        id: 'user-admin-root',
-        name: 'Yahaya Zaid',
-        email: 'yahayazaid2021@gmail.com',
-        passwordHash: 'NSUK@Admin2026!',
-        role: 'ADMIN',
-        userType: 'STAFF',
-        matricOrStaffId: 'EP-ADMIN-01',
-        faculty: 'Faculty of Natural & Applied Sciences',
-        department: 'Computer Science',
-        emailVerified: true,
-        createdAt: new Date().toISOString(),
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-      },
-      {
-        id: 'user-org-farouk',
-        name: 'Farouk Ibrahim',
-        email: 'farouk.organizer@eventpulse.com.ng',
-        passwordHash: 'password123',
-        role: 'ORGANIZER',
-        userType: 'STAFF',
-        matricOrStaffId: 'EP-ORG-01',
-        faculty: 'Faculty of Administration',
-        department: 'Business Administration',
-        emailVerified: true,
-        createdAt: new Date().toISOString(),
-        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'
-      },
-      {
-        id: 'user-stu-aisha',
-        name: 'Aisha Bello',
-        email: 'aisha.student@eventpulse.com.ng',
-        passwordHash: 'password123',
-        role: 'STUDENT',
-        userType: 'STUDENT',
-        matricOrStaffId: 'EP/2026/0142',
-        faculty: 'Faculty of Natural & Applied Sciences',
-        department: 'Computer Science',
-        emailVerified: true,
-        createdAt: new Date().toISOString(),
-        avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150'
-      }
-    ];
-
-    let usersUpdated = false;
-    defaultAccounts.forEach(acc => {
-      const match = existingUsers.find(u => u.email.toLowerCase() === acc.email.toLowerCase());
-      if (!match) {
-        existingUsers.push(acc);
-        usersUpdated = true;
-      }
-    });
-    if (usersUpdated || !localStorage.getItem(STORAGE_KEYS.USERS)) {
-      this.set(STORAGE_KEYS.USERS, existingUsers);
+    // Initialize clean production stores
+    if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+      this.set(STORAGE_KEYS.USERS, []);
     }
-
     if (!localStorage.getItem(STORAGE_KEYS.CATEGORIES)) {
       this.set(STORAGE_KEYS.CATEGORIES, SYSTEM_CATEGORIES);
     }
-
-    // Initialize initial verified campus events if empty
-    const currentEvents = this.getEvents();
-    if (currentEvents.length === 0) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-      const nextWeek = new Date();
-      nextWeek.setDate(nextWeek.getDate() + 6);
-      const nextWeekStr = nextWeek.toISOString().split('T')[0];
-
-      const sampleEvents: Event[] = [
-        {
-          id: 'evt-tech-summit-2026',
-          title: 'Campus Innovation & Technology Summit 2026',
-          slug: 'campus-innovation-technology-summit-2026',
-          description: 'Join faculty researchers, software engineers, and campus student innovators for a full-day summit exploring Artificial Intelligence, Cloud Infrastructure, and Nigerian tech entrepreneurship.',
-          bannerUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200',
-          categoryId: 'academic-lectures',
-          categoryName: 'Academic Lectures & Defenses',
-          categoryColor: '#1E40AF',
-          organizerId: 'user-org-farouk',
-          organizerName: 'Farouk Ibrahim',
-          organizerContact: 'farouk.organizer@eventpulse.com.ng',
-          targetAudience: 'UNIVERSITY_WIDE',
-          startTime: `${tomorrowStr}T10:00:00.000Z`,
-          endTime: `${tomorrowStr}T15:00:00.000Z`,
-          timezone: 'Africa/Lagos',
-          format: 'PHYSICAL',
-          venueName: '1000 Capacity Assembly Auditorium',
-          buildingHall: 'Central Academic Complex',
-          roomNumber: 'Main Auditorium Hall A',
-          campusArea: 'Main Campus, Keffi',
-          landmark: 'Opposite University Library',
-          address: 'Keffi-Akwanga Expressway, Nasarawa State',
-          restrictJoinLink: false,
-          requiresRegistration: true,
-          capacity: 500,
-          registeredCount: 1,
-          accessibilityInfo: 'Wheelchair ramp available at northern entrance.',
-          arrivalInstructions: 'Present your digital QR ticket pass at Gate 2 reception desk.',
-          status: 'PUBLISHED',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'evt-sports-fiesta-2026',
-          title: 'Inter-Faculty Athletic Championship & Games',
-          slug: 'inter-faculty-athletic-championship-games',
-          description: 'The annual campus athletic meet featuring track and field finals, football exhibition matches, basketball playoffs, and medal awards.',
-          bannerUrl: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=1200',
-          categoryId: 'sports-athletics',
-          categoryName: 'Sports & Athletics',
-          categoryColor: '#EA580C',
-          organizerId: 'user-org-farouk',
-          organizerName: 'Farouk Ibrahim',
-          organizerContact: 'farouk.organizer@eventpulse.com.ng',
-          targetAudience: 'UNIVERSITY_WIDE',
-          startTime: `${nextWeekStr}T09:00:00.000Z`,
-          endTime: `${nextWeekStr}T17:00:00.000Z`,
-          timezone: 'Africa/Lagos',
-          format: 'PHYSICAL',
-          venueName: 'University Sports Pavilion & Stadium',
-          buildingHall: 'Sports Pavilion Arena',
-          roomNumber: 'Track & Field Grandstand',
-          campusArea: 'Main Campus, Keffi',
-          landmark: 'Beside Student Center',
-          address: 'Main Campus Sports Complex',
-          restrictJoinLink: false,
-          requiresRegistration: true,
-          capacity: 1000,
-          registeredCount: 0,
-          status: 'PUBLISHED',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'evt-robotics-expo-2026',
-          title: "Dean's Artificial Intelligence & Robotics Exhibition",
-          slug: 'deans-artificial-intelligence-robotics-exhibition',
-          description: 'Student engineering and computer science prototypes on display including autonomous drones, IoT campus sensor networks, and automated irrigation models.',
-          bannerUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200',
-          categoryId: 'workshops-training',
-          categoryName: 'Workshops & Training',
-          categoryColor: '#059669',
-          organizerId: 'user-org-farouk',
-          organizerName: 'Farouk Ibrahim',
-          organizerContact: 'farouk.organizer@eventpulse.com.ng',
-          targetAudience: 'FACULTY',
-          targetFaculty: 'Faculty of Natural & Applied Sciences',
-          startTime: `${tomorrowStr}T13:00:00.000Z`,
-          endTime: `${tomorrowStr}T16:00:00.000Z`,
-          timezone: 'Africa/Lagos',
-          format: 'PHYSICAL',
-          venueName: 'Faculty of Natural Sciences Lecture Theatre',
-          buildingHall: 'Science Complex Phase 2',
-          roomNumber: 'Theatre 1',
-          campusArea: 'Main Campus, Keffi',
-          landmark: 'Adjacent Science Laboratories',
-          address: 'Main Campus Science Complex',
-          restrictJoinLink: false,
-          requiresRegistration: true,
-          capacity: 150,
-          registeredCount: 0,
-          status: 'PENDING_APPROVAL',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-
-      this.set(STORAGE_KEYS.EVENTS, sampleEvents);
+    if (!localStorage.getItem(STORAGE_KEYS.EVENTS)) {
+      this.set(STORAGE_KEYS.EVENTS, []);
     }
-
-    // Initialize baseline registrations if empty
     if (!localStorage.getItem(STORAGE_KEYS.REGISTRATIONS)) {
-      this.set(STORAGE_KEYS.REGISTRATIONS, [
-        {
-          id: 'reg-demo-1',
-          eventId: 'evt-tech-summit-2026',
-          userId: 'user-stu-aisha',
-          userName: 'Aisha Bello',
-          userEmail: 'aisha.student@eventpulse.com.ng',
-          referenceCode: 'EP-SUMMIT-2026',
-          status: 'CONFIRMED',
-          registeredAt: new Date().toISOString(),
-        }
-      ]);
+      this.set(STORAGE_KEYS.REGISTRATIONS, []);
     }
-
     if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
       this.set(STORAGE_KEYS.NOTIFICATIONS, []);
     }
     if (!localStorage.getItem(STORAGE_KEYS.OUTBOX)) {
       this.set(STORAGE_KEYS.OUTBOX, []);
     }
-
-    // Initialize baseline application for Admin review demonstration
     if (!localStorage.getItem(STORAGE_KEYS.APPLICATIONS)) {
-      this.set(STORAGE_KEYS.APPLICATIONS, [
-        {
-          id: 'app-seed-demo',
-          userId: 'user-stu-aisha',
-          userName: 'Aisha Bello',
-          userEmail: 'aisha.student@eventpulse.com.ng',
-          organizationName: 'Campus Robotics & AI Innovation Society',
-          department: 'Computer Science',
-          faculty: 'Faculty of Natural & Applied Sciences',
-          reason: 'We are organizing inter-faculty tech hackathons and workshops and require organizer event publishing privileges on EventPulse.',
-          status: 'PENDING',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      ]);
+      this.set(STORAGE_KEYS.APPLICATIONS, []);
     }
-
     if (!localStorage.getItem(STORAGE_KEYS.LOGS)) {
       this.set(STORAGE_KEYS.LOGS, SYSTEM_INITIAL_LOGS);
     }
-
-    // Ensure all existing registered users receive an automated welcome email in the outbox
-    const users = this.getUsers();
-    users.forEach(u => {
-      const outbox = this.getOutboxJobs();
-      const hasWelcome = outbox.some(j => j.idempotencyKey === `welcome-user-${u.id}`);
-      if (!hasWelcome) {
-        this.sendWelcomeEmail(u);
-      }
-    });
 
     // Run automated lifecycle scanner on startup
     this.runAutomatedLifecycleScan();
@@ -349,16 +155,7 @@ class EventPulseStorage {
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (!user) return { error: 'Account not found. Please register your account.' };
     if (user.passwordHash !== passwordHash) {
-      if (
-        (user.email.toLowerCase() === EventPulseStorage.SUPER_ADMIN_EMAIL.toLowerCase() && passwordHash === 'NSUK@Admin2026!') ||
-        (user.email.toLowerCase() === 'farouk.organizer@eventpulse.com.ng' && passwordHash === 'password123') ||
-        (user.email.toLowerCase() === 'aisha.student@eventpulse.com.ng' && passwordHash === 'password123')
-      ) {
-        user.passwordHash = passwordHash;
-        this.set(STORAGE_KEYS.USERS, users);
-      } else {
-        return { error: 'Invalid password. Please try again.' };
-      }
+      return { error: 'Invalid password. Please try again.' };
     }
     
     // Ensure designated super admin has ADMIN role upon login
@@ -986,9 +783,8 @@ class EventPulseStorage {
     if (!event) return { count: 0 };
 
     const regs = this.getRegistrations().filter(r => r.eventId === eventId && r.status === 'CONFIRMED');
-    const targetAudience = regs.length > 0 
-      ? regs.map(r => ({ email: r.userEmail, name: r.userName, userId: r.userId, ref: r.referenceCode }))
-      : this.getUsers().slice(0, 3).map(u => ({ email: u.email, name: u.name, userId: u.id, ref: 'EP-REMINDER' }));
+    if (regs.length === 0) return { count: 0 };
+    const targetAudience = regs.map(r => ({ email: r.userEmail, name: r.userName, userId: r.userId, ref: r.referenceCode }));
 
     const is1H = reminderType === 'REMINDER_1H';
     const timeLabel = is1H ? '1 Hour' : '24 Hours';
@@ -1086,9 +882,8 @@ class EventPulseStorage {
     if (!event) return { count: 0 };
 
     const regs = this.getRegistrations().filter(r => r.eventId === eventId && r.status === 'CONFIRMED');
-    const targetAudience = regs.length > 0 
-      ? regs.map(r => ({ email: r.userEmail, name: r.userName, userId: r.userId, ref: r.referenceCode }))
-      : this.getUsers().slice(0, 3).map(u => ({ email: u.email, name: u.name, userId: u.id, ref: 'EP-LIVE' }));
+    if (regs.length === 0) return { count: 0 };
+    const targetAudience = regs.map(r => ({ email: r.userEmail, name: r.userName, userId: r.userId, ref: r.referenceCode }));
 
     let count = 0;
     targetAudience.forEach(target => {

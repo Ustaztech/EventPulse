@@ -131,7 +131,7 @@ export const ResetPasswordPage: React.FC = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="student@nsuk.edu.ng"
+                    placeholder="user@example.com"
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-royal/30"
                     required
                   />

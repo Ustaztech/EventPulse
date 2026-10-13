@@ -120,7 +120,7 @@ export const ExplorePage: React.FC = () => {
             Explore Campus Events
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Discover academic lectures, student workshops, hackathons, and athletic games across NSUK.
+            Discover academic lectures, student workshops, hackathons, and campus activities.
           </p>
         </div>
 
@@ -252,16 +252,22 @@ export const ExplorePage: React.FC = () => {
               <div className="w-16 h-16 bg-blue-50 dark:bg-slate-800 text-royal dark:text-turquoise rounded-2xl flex items-center justify-center mx-auto">
                 <Search className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">No events matched your criteria</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {allEvents.length === 0 ? 'No campus events scheduled yet' : 'No events matched your criteria'}
+              </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                Try searching with fewer filters or explore another campus category.
+                {allEvents.length === 0
+                  ? 'There are currently no published campus events. Check back soon or create one from your organizer dashboard.'
+                  : 'Try searching with fewer filters or explore another campus category.'}
               </p>
-              <button
-                onClick={clearFilters}
-                className="px-6 py-2.5 rounded-xl font-bold text-sm bg-royal text-white hover:bg-royal-hover shadow-sm"
-              >
-                Reset Search Filters
-              </button>
+              {allEvents.length > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="px-6 py-2.5 rounded-xl font-bold text-sm bg-royal text-white hover:bg-royal-hover shadow-sm"
+                >
+                  Reset Search Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -152,7 +152,7 @@ export const HomePage: React.FC = () => {
                 </span>
                 <div>
                   <h2 className="text-2xl font-black text-slate-900">Happening Now on Campus</h2>
-                  <p className="text-xs text-slate-600">Live sessions underway right now at NSUK venues.</p>
+                  <p className="text-xs text-slate-600">Live sessions underway right now at campus venues.</p>
                 </div>
               </div>
               <Link
@@ -300,7 +300,7 @@ export const HomePage: React.FC = () => {
         <div className="bg-gradient-to-r from-royal to-teal rounded-3xl p-8 sm:p-12 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl">
           <div className="space-y-3 max-w-xl text-center md:text-left">
             <h2 className="text-3xl font-black tracking-tight">
-              Hosting an Event at NSUK?
+              Hosting an Event on Campus?
             </h2>
             <p className="text-sm text-blue-100 leading-relaxed">
               Departments, student associations, research centres, and accredited student bodies can manage registrations, check attendance with QR codes, and broadcast updates directly to verified participants.

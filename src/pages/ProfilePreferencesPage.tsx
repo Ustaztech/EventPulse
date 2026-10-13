@@ -97,7 +97,7 @@ export const ProfilePreferencesPage: React.FC = () => {
               <label className="text-xs font-bold text-slate-700">Matric / Staff ID</label>
               <input
                 type="text"
-                value={currentUser.matricOrStaffId || 'NSUK/2026/001'}
+                value={currentUser.matricOrStaffId || 'Not Specified'}
                 disabled
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm bg-slate-50 text-slate-500 cursor-not-allowed font-mono"
               />

@@ -176,7 +176,7 @@ export const RegisterPage: React.FC = () => {
                   type="text"
                   value={matricOrStaffId}
                   onChange={(e) => setMatricOrStaffId(e.target.value)}
-                  placeholder="e.g. NSUK/22/0104"
+                  placeholder="e.g. STU/2026/0104"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium placeholder-slate-400"
                 />
               </div>

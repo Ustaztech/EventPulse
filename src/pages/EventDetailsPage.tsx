@@ -225,10 +225,10 @@ export const EventDetailsPage: React.FC = () => {
                     Venue & Location
                   </span>
                   <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-                    {event.venueName || (event.format === 'ONLINE' ? 'Virtual Meeting' : 'NSUK Main Campus')}
+                    {event.venueName || (event.format === 'ONLINE' ? 'Virtual Meeting' : 'Campus Main Auditorium')}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {event.campusArea || 'Main Campus, Keffi'}
+                    {event.campusArea || 'Campus Grounds'}
                   </p>
                 </div>
               </div>

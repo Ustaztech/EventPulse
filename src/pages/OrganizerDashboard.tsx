@@ -73,7 +73,7 @@ export const OrganizerDashboard: React.FC = () => {
   const [landmark, setLandmark] = useState(POPULAR_NSUK_VENUES[0].landmark);
   const [address, setAddress] = useState(POPULAR_NSUK_VENUES[0].address);
   const [onlinePlatform, setOnlinePlatform] = useState('Zoom');
-  const [onlineJoinLink, setOnlineJoinLink] = useState('https://zoom.us/j/nsuk-event');
+  const [onlineJoinLink, setOnlineJoinLink] = useState('https://zoom.us/j/campus-event');
   
   // Rules
   const [capacity, setCapacity] = useState('200');
@@ -350,7 +350,16 @@ export const OrganizerDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-navy-light/30">
-                {myEvents.map((evt) => (
+                {myEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-slate-500">
+                      <Calendar className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                      <p className="font-bold text-slate-700 dark:text-slate-300">No events created yet</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Click "Create Event" to draft and publish your first campus event.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  myEvents.map((evt) => (
                   <tr key={evt.id} className="hover:bg-slate-50/80 dark:hover:bg-navy-light/20 transition-colors">
                     <td className="py-4 px-6">
                       <div className="font-bold text-slate-900 dark:text-white text-sm max-w-xs truncate">{evt.title}</div>
@@ -402,7 +411,7 @@ export const OrganizerDashboard: React.FC = () => {
                       </Link>
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
