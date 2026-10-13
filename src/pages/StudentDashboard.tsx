@@ -22,7 +22,7 @@ import { db } from '../lib/storage';
 import { Registration, Event } from '../lib/types';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
 import { DigitalTicketModal } from '../components/DigitalTicketModal';
-import { GmailMailingSystem } from '../components/GmailMailingSystem';
+import { EmailBroadcastHub } from '../components/EmailBroadcastHub';
 
 export const StudentDashboard: React.FC = () => {
   const { currentUser, unreadCount, refreshUserData } = useAuth();
@@ -137,7 +137,7 @@ export const StudentDashboard: React.FC = () => {
     },
     {
       id: 'mail',
-      label: 'Campus Mailbox',
+      label: 'Email Notifications',
       icon: Mail,
       badge: unreadCount > 0 ? unreadCount : undefined,
       badgeVariant: 'rose',
@@ -378,9 +378,9 @@ export const StudentDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Campus Mailbox (Gmail-style) */}
+      {/* Tab 4: Email Notifications (Resend / MailerLite deliveries) */}
       {activeTab === 'mail' && (
-        <GmailMailingSystem initialFolder="inbox" />
+        <EmailBroadcastHub initialTab="logs" />
       )}
 
         {/* Digital Ticket Modal */}

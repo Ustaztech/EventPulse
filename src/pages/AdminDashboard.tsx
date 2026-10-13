@@ -23,7 +23,7 @@ import { db } from '../lib/storage';
 import { OutboxInspectorModal } from '../components/OutboxInspectorModal';
 import { Role } from '../lib/types';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
-import { GmailMailingSystem } from '../components/GmailMailingSystem';
+import { EmailBroadcastHub } from '../components/EmailBroadcastHub';
 
 export const AdminDashboard: React.FC = () => {
   const { currentUser, refreshUserData } = useAuth();
@@ -114,7 +114,7 @@ export const AdminDashboard: React.FC = () => {
     },
     {
       id: 'outbox',
-      label: 'Campus Mail & Outbox',
+      label: 'Email Hub (Resend / MailerLite)',
       icon: Mail,
       badge: outboxJobs.length,
       badgeVariant: 'teal',
@@ -334,9 +334,9 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Campus Mail System & Outbox */}
+      {/* Tab 4: Email Campaign & Dispatch Hub (Resend / MailerLite) */}
       {activeTab === 'outbox' && (
-        <GmailMailingSystem initialFolder="outbox" />
+        <EmailBroadcastHub initialTab="settings" />
       )}
 
       {/* Tab 5: Audit Logs */}

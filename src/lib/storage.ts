@@ -13,6 +13,7 @@ import {
   NotificationPreferences 
 } from './types';
 import { CATEGORY_DEFINITIONS } from './nsuk-data';
+import { emailService } from './emailService';
 
 // Live production storage keys
 const STORAGE_KEYS = {
@@ -634,8 +635,7 @@ class EventPulseStorage {
       type: 'ANNOUNCEMENT'
     });
 
-    // Enqueue automated welcome email to outbox
-    return this.enqueueOutboxJob({
+    const job = this.enqueueOutboxJob({
       recipientEmail: user.email,
       recipientName: user.name,
       subject: 'Welcome to EventPulse: Campus Event Discovery & Smart Notification Engine',
@@ -669,6 +669,18 @@ class EventPulseStorage {
       userId: user.id,
       idempotencyKey: `welcome-user-${user.id}`
     });
+
+    // Dispatch via external mailing provider (Resend / MailerLite)
+    emailService.sendEmail({
+      to: user.email,
+      recipientName: user.name,
+      subject: job.subject,
+      html: job.bodyHtml,
+      text: job.bodyText,
+      category: 'welcome',
+    });
+
+    return job;
   }
 
   /**
@@ -728,6 +740,33 @@ class EventPulseStorage {
     });
 
     this.logAction(event.organizerId, event.organizerName, 'NOTIFICATION_BROADCAST', 'Event', event.id, `Broadcasted new event notification to ${count} campus members.`);
+
+    // Dispatch via external mailing provider (Resend / MailerLite)
+    const validUsers = users.filter(u => this.getPreferences(u.id).emailAnnouncements);
+    emailService.sendBatchEmail({
+      recipients: validUsers.map(u => ({ email: u.email, name: u.name })),
+      subject: `New Campus Event Added: ${event.title}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <div style="background: linear-gradient(135deg, #1E40AF, #3B82F6); padding: 28px 24px; color: #ffffff;">
+            <span style="background: rgba(255,255,255,0.22); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase;">New Event Announcement</span>
+            <h1 style="margin: 12px 0 0; font-size: 22px; font-weight: 800;">${event.title}</h1>
+          </div>
+          <div style="padding: 24px; color: #334155; line-height: 1.6;">
+            <p>A new campus event has just been scheduled and registration is now open:</p>
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin: 18px 0;">
+              <p style="margin: 0 0 6px;"><strong>Date & Time:</strong> ${new Date(event.startTime).toLocaleString()}</p>
+              <p style="margin: 0 0 6px;"><strong>Venue:</strong> ${event.venueName || 'Campus Main Hall'}</p>
+              <p style="margin: 10px 0 0; color: #475569;">${event.description}</p>
+            </div>
+            <p>Log in to EventPulse to claim your pass.</p>
+          </div>
+        </div>
+      `,
+      text: `New Event: ${event.title}\nDate: ${new Date(event.startTime).toLocaleString()}\nVenue: ${event.venueName || 'Campus Hall'}\n${event.description}`,
+      category: 'new_event',
+    });
+
     return { count };
   }
 
@@ -804,6 +843,30 @@ class EventPulseStorage {
     });
 
     this.logAction(undefined, 'Automated Scheduler', 'REMINDER_DISPATCHED', 'Event', eventId, `Dispatched ${reminderType} reminder to ${count} participants.`);
+
+    // Dispatch via external mailing provider (Resend / MailerLite)
+    emailService.sendBatchEmail({
+      recipients: targetAudience.map(t => ({ email: t.email, name: t.name })),
+      subject: urgencySubject,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <div style="background: ${is1H ? 'linear-gradient(135deg, #D97706, #EA580C)' : 'linear-gradient(135deg, #1E40AF, #0D9488)'}; padding: 26px 24px; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 20px; font-weight: 800;">${is1H ? 'Starting in 1 Hour' : 'Starting Tomorrow'}: ${event.title}</h1>
+          </div>
+          <div style="padding: 24px; color: #334155; line-height: 1.6;">
+            <p>Your registered event is starting in <strong>${timeLabel}</strong>!</p>
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin: 18px 0;">
+              <p style="margin: 0 0 6px;"><strong>Venue:</strong> ${event.venueName || 'Campus Main Hall'}</p>
+              <p style="margin: 0 0 6px;"><strong>Time:</strong> ${new Date(event.startTime).toLocaleString()}</p>
+            </div>
+            <p>Please have your pass ready on your phone upon arrival.</p>
+          </div>
+        </div>
+      `,
+      text: `Reminder: ${event.title} starts in ${timeLabel}! Venue: ${event.venueName || 'Campus Main Hall'}`,
+      category: 'approaching',
+    });
+
     return { count };
   }
 
@@ -870,6 +933,30 @@ class EventPulseStorage {
     });
 
     this.logAction(undefined, 'Automated Scheduler', 'LIVE_DISPATCHED', 'Event', eventId, `Dispatched Happening Now notice to ${count} participants.`);
+
+    // Dispatch via external mailing provider (Resend / MailerLite)
+    emailService.sendBatchEmail({
+      recipients: targetAudience.map(t => ({ email: t.email, name: t.name })),
+      subject: `Happening Now: ${event.title} is Officially Underway!`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <div style="background: linear-gradient(135deg, #059669, #10B981); padding: 26px 24px; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 20px; font-weight: 800;">Happening Now: ${event.title} is Live!</h1>
+          </div>
+          <div style="padding: 24px; color: #334155; line-height: 1.6;">
+            <p>The doors are open and the session has officially begun!</p>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 18px; margin: 18px 0;">
+              <p style="margin: 0 0 6px;"><strong>Venue:</strong> ${event.venueName || 'Campus Main Hall'}</p>
+              ${event.landmark ? `<p style="margin: 0 0 6px; color: #047857;"><strong>Landmark:</strong> ${event.landmark}</p>` : ''}
+            </div>
+            <p>Proceed to check-in to validate your pass.</p>
+          </div>
+        </div>
+      `,
+      text: `Happening Now: ${event.title} is underway now at ${event.venueName || 'Campus Main Hall'}!`,
+      category: 'happening_now',
+    });
+
     return { count };
   }
 

@@ -25,7 +25,7 @@ import { db } from '../lib/storage';
 import { Event, TargetAudience, EventFormat } from '../lib/types';
 import { CATEGORY_DEFINITIONS, POPULAR_NSUK_VENUES, NSUK_CAMPUSES, NSUK_FACULTIES } from '../lib/nsuk-data';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
-import { GmailMailingSystem } from '../components/GmailMailingSystem';
+import { EmailBroadcastHub } from '../components/EmailBroadcastHub';
 
 export const OrganizerDashboard: React.FC = () => {
   const { currentUser, refreshUserData } = useAuth();
@@ -285,7 +285,7 @@ export const OrganizerDashboard: React.FC = () => {
     },
     {
       id: 'mail',
-      label: 'Campus Mail & Outbox',
+      label: 'Email Hub (Resend / MailerLite)',
       icon: Mail,
       badge: 'Live',
       badgeVariant: 'teal',
@@ -846,9 +846,9 @@ export const OrganizerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 5: Event Mail & Outbox System */}
+      {/* Tab 5: Email Broadcast & Campaign Hub (Resend / MailerLite) */}
       {activeTab === 'mail' && (
-        <GmailMailingSystem initialFolder="sent" />
+        <EmailBroadcastHub initialTab="compose" />
       )}
     </DashboardLayout>
   );

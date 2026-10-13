@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Shield } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
-import { GmailMailingSystem } from '../components/GmailMailingSystem';
+import { EmailBroadcastHub } from '../components/EmailBroadcastHub';
 
 export const NotificationCenterPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -13,8 +13,8 @@ export const NotificationCenterPage: React.FC = () => {
         <div className="w-12 h-12 rounded-2xl bg-royal/10 text-royal flex items-center justify-center mx-auto">
           <Mail className="w-6 h-6" />
         </div>
-        <h2 className="text-xl font-black text-slate-800 dark:text-white">Sign In to Access Mailbox</h2>
-        <p className="text-slate-500 text-xs">You must be logged in to inspect your campus mail and notification queue.</p>
+        <h2 className="text-xl font-black text-slate-800 dark:text-white">Sign In to Access Email Hub</h2>
+        <p className="text-slate-500 text-xs">You must be logged in to compose and dispatch platform emails.</p>
         <Link to="/auth/login" className="px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-xs inline-block shadow-md">
           Sign In
         </Link>
@@ -43,10 +43,10 @@ export const NotificationCenterPage: React.FC = () => {
             </Link>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
-            Campus Mailbox & Notification Center
+            Email Campaign & Dispatch Hub
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Gmail-style webmail client for event tickets, organizers' announcements, and durable dispatch queues.
+            Compose and dispatch automated emails to platform users' actual inboxes via Resend & MailerLite.
           </p>
         </div>
 
@@ -56,8 +56,8 @@ export const NotificationCenterPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Gmail-Style Mailing System */}
-      <GmailMailingSystem initialFolder="inbox" />
+      {/* Real Email Broadcast & Campaign Hub */}
+      <EmailBroadcastHub initialTab="compose" />
     </div>
   );
 };
