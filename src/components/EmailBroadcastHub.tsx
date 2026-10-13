@@ -22,11 +22,13 @@ import {
   ChevronRight,
   Sliders,
   Calendar,
-  Ticket
+  Ticket,
+  Lock
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { emailService, EmailProviderConfig, DispatchLogItem } from '../lib/emailService';
+import { canManageMailingSettings } from '../lib/rbac';
 
 interface EmailBroadcastHubProps {
   initialTab?: 'compose' | 'automated' | 'logs' | 'settings';
@@ -1010,6 +1012,32 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                 </p>
               </div>
 
+              {!canManageMailingSettings(currentUser) ? (
+                <div className="p-6 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-xs space-y-4">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    <span>Administrator Managed Configuration</span>
+                  </div>
+                  <p className="text-amber-700 dark:text-amber-300 leading-relaxed">
+                    Global mailing provider tokens and API credentials are restricted to Platform Administrators.
+                    Your broadcasts and automated event notices are routed automatically through the active verified provider.
+                  </p>
+                  <div className="p-3.5 bg-white dark:bg-[#0B132B] rounded-xl border border-amber-200 dark:border-amber-800/40 space-y-1.5 font-mono text-[11px]">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Active Provider:</span>
+                      <strong className="text-royal dark:text-turquoise">{config.provider.toUpperCase()}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Sender Identity:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{config.senderName} &lt;{config.senderEmail}&gt;</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Connection Status:</span>
+                      <span className="text-emerald-600 font-bold">Verified & Active</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
                 {/* Provider Selector */}
                 <div className="space-y-1.5">
@@ -1145,6 +1173,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </div>
         )}

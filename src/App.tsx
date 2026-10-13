@@ -6,6 +6,8 @@ import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LoadingScreen } from './components/LoadingScreen';
 
+import { ProtectedRoute } from './components/ProtectedRoute';
+
 // Pages
 import { HomePage } from './pages/HomePage';
 import { ExplorePage } from './pages/ExplorePage';
@@ -48,14 +50,49 @@ export function App() {
                 <Route path="/auth/verify" element={<VerifyEmailPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
                 
-                {/* Dashboards */}
-                <Route path="/dashboard/student" element={<StudentDashboard />} />
-                <Route path="/dashboard/organizer" element={<OrganizerDashboard />} />
-                <Route path="/dashboard/admin" element={<AdminDashboard />} />
+                {/* Dashboards with Role-Based Access Control */}
+                <Route 
+                  path="/dashboard/student" 
+                  element={
+                    <ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN']}>
+                      <StudentDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/dashboard/organizer" 
+                  element={
+                    <ProtectedRoute allowedRoles={['ORGANIZER', 'ADMIN']}>
+                      <OrganizerDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/dashboard/admin" 
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
                 
                 {/* Notifications & Profile */}
-                <Route path="/notifications" element={<NotificationCenterPage />} />
-                <Route path="/profile" element={<ProfilePreferencesPage />} />
+                <Route 
+                  path="/notifications" 
+                  element={
+                    <ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN']}>
+                      <NotificationCenterPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN']}>
+                      <ProfilePreferencesPage />
+                    </ProtectedRoute>
+                  } 
+                />
                 
                 {/* Info & Legal */}
                 <Route path="/about" element={<AboutPage />} />

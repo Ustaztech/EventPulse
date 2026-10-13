@@ -85,6 +85,11 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleRoleChange = (userId: string, newRole: Role) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser && targetUser.email.toLowerCase() === 'yahayazaid2021@gmail.com' && newRole !== 'ADMIN') {
+      setAdminNotice('Security Policy: Cannot demote the primary Super Administrator account.');
+      return;
+    }
     db.updateUserRole(userId, newRole, currentUser.name);
     refreshUserData();
     setAdminNotice(`User privileges updated to ${newRole}.`);
@@ -140,7 +145,7 @@ export const AdminDashboard: React.FC = () => {
       <DashboardLayout
         title="Admin Control Center"
         subtitle="Supervise campus organizer accreditation, verify event proposals, monitor email queues, and inspect audit logs."
-        badgeText="NSUK Administrative Console"
+        badgeText="EventPulse Administrative Console"
         badgeColor="purple"
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id)}
@@ -302,7 +307,7 @@ export const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
                       <div>{u.department || 'General'}</div>
-                      <span className="text-[10px] text-slate-400">{u.faculty || 'NSUK'}</span>
+                      <span className="text-[10px] text-slate-400">{u.faculty || 'Campus Community'}</span>
                     </td>
                     <td className="py-3 px-4">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
@@ -317,8 +322,8 @@ export const AdminDashboard: React.FC = () => {
                       <select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                        className="text-xs p-1.5 rounded-lg border border-slate-300 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white font-semibold"
-                        disabled={u.id === currentUser.id}
+                        className="text-xs p-1.5 rounded-lg border border-slate-300 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={u.id === currentUser.id || u.email.toLowerCase() === 'yahayazaid2021@gmail.com'}
                       >
                         <option value="STUDENT">Student</option>
                         <option value="STAFF">Staff</option>

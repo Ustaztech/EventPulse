@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calendar, 
   Clock, 
@@ -29,6 +29,7 @@ export const EventDetailsPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const { currentUser, refreshUserData } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [mapOpen, setMapOpen] = useState(false);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
@@ -83,7 +84,7 @@ export const EventDetailsPage: React.FC = () => {
 
   const handleRegister = () => {
     if (!currentUser) {
-      navigate('/auth/login');
+      navigate(`/auth/login?redirect=${encodeURIComponent(location.pathname)}`);
       return;
     }
     setActionError(null);
@@ -104,7 +105,7 @@ export const EventDetailsPage: React.FC = () => {
 
   const handleBookmark = () => {
     if (!currentUser) {
-      navigate('/auth/login');
+      navigate(`/auth/login?redirect=${encodeURIComponent(location.pathname)}`);
       return;
     }
     db.toggleBookmark(event.id, currentUser.id);

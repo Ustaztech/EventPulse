@@ -539,7 +539,7 @@ export const Navbar: React.FC = () => {
             {mobileHomeOpen && (
               <div className="p-3 bg-white dark:bg-[#111A33] border-t border-slate-100 dark:border-navy-light/40 space-y-2 text-xs">
                 <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block">
-                  NSUK Campuses
+                  Campus Locations & Tracks
                 </span>
                 <div className="grid grid-cols-2 gap-1.5 font-medium">
                   <Link

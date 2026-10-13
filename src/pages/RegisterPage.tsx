@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   User, 
   Mail, 
@@ -15,10 +15,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { BrandLogo } from '../components/BrandLogo';
+import { getDefaultDashboardRoute } from '../lib/rbac';
 
 export const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -50,7 +53,7 @@ export const RegisterPage: React.FC = () => {
     setTimeout(() => {
       const userRole = userType === 'STAFF' ? 'STAFF' : 'STUDENT';
 
-      register({
+      const newUser = register({
         name: name.trim(),
         email: email.trim(),
         passwordHash: password,
@@ -62,7 +65,11 @@ export const RegisterPage: React.FC = () => {
       });
 
       setIsLoading(false);
-      navigate('/dashboard/student');
+      if (redirectParam) {
+        navigate(decodeURIComponent(redirectParam));
+      } else {
+        navigate(getDefaultDashboardRoute(newUser));
+      }
     }, 350);
   };
 

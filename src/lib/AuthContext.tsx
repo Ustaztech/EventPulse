@@ -15,8 +15,16 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    db.init();
+    return db.getCurrentUser();
+  });
+  const [unreadCount, setUnreadCount] = useState<number>(() => {
+    const user = db.getCurrentUser();
+    if (!user) return 0;
+    const notifs = db.getInAppNotifications(user.id);
+    return notifs.filter(n => !n.isRead).length;
+  });
 
   useEffect(() => {
     db.init();

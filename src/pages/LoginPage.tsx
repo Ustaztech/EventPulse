@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Lock, 
   Mail, 
@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { BrandLogo } from '../components/BrandLogo';
+import { db } from '../lib/storage';
+import { getDefaultDashboardRoute } from '../lib/rbac';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -24,6 +26,8 @@ export const LoginPage: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +40,12 @@ export const LoginPage: React.FC = () => {
       if (!res.success) {
         setError(res.error || 'Authentication failed. Please verify your email and password.');
       } else {
-        navigate('/dashboard/student');
+        if (redirectParam) {
+          navigate(decodeURIComponent(redirectParam));
+        } else {
+          const loggedUser = db.getCurrentUser();
+          navigate(getDefaultDashboardRoute(loggedUser));
+        }
       }
     }, 350);
   };

@@ -182,7 +182,7 @@ export const HomePage: React.FC = () => {
               <span>Campus Calendar</span>
             </div>
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-              Upcoming NSUK Events
+              Upcoming Campus Events
             </h2>
           </div>
           <Link
@@ -201,7 +201,7 @@ export const HomePage: React.FC = () => {
             </div>
             <h3 className="text-xl font-bold text-slate-900">No Upcoming Events Yet</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-              Be the first to publish a campus symposium, faculty workshop, sports tournament, or cultural day for the NSUK community.
+              Be the first to publish a campus symposium, faculty workshop, sports tournament, or cultural day for the campus community.
             </p>
             {currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'ORGANIZER') ? (
               <Link

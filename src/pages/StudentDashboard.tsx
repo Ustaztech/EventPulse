@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { 
   Calendar, 
   Bookmark as BookmarkIcon, 
@@ -26,7 +26,11 @@ import { EmailBroadcastHub } from '../components/EmailBroadcastHub';
 
 export const StudentDashboard: React.FC = () => {
   const { currentUser, unreadCount, refreshUserData } = useAuth();
-  const [activeTab, setActiveTab] = useState<'registrations' | 'bookmarks' | 'history' | 'mail' | 'apply'>('registrations');
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'bookmarks' | 'history' | 'mail' | 'apply'>(
+    tabParam === 'apply' ? 'apply' : tabParam === 'mail' ? 'mail' : tabParam === 'bookmarks' ? 'bookmarks' : tabParam === 'history' ? 'history' : 'registrations'
+  );
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
 
   // Application form state

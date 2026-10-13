@@ -441,7 +441,7 @@ export const OrganizerDashboard: React.FC = () => {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. NSUK Annual Robotics & AI Showcase 2026"
+                  placeholder="e.g. Annual Campus Robotics & AI Showcase 2026"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium"
                   required
                 />
@@ -494,7 +494,7 @@ export const OrganizerDashboard: React.FC = () => {
                   onChange={(e) => setTargetAudience(e.target.value as any)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 text-sm bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-royal/30"
                 >
-                  <option value="UNIVERSITY_WIDE" className="dark:bg-navy-dark">University-Wide (All NSUK)</option>
+                  <option value="UNIVERSITY_WIDE" className="dark:bg-navy-dark">University-Wide (All Campus)</option>
                   <option value="FACULTY" className="dark:bg-navy-dark">Faculty Specific</option>
                   <option value="DEPARTMENT" className="dark:bg-navy-dark">Department Specific</option>
                   <option value="INTEREST" className="dark:bg-navy-dark">Interest Based</option>
@@ -589,7 +589,7 @@ export const OrganizerDashboard: React.FC = () => {
                     onChange={(e) => handleVenuePreset(e.target.value)}
                     className="text-xs px-2.5 py-1 rounded-lg border border-slate-300 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-800 dark:text-slate-200"
                   >
-                    <option value="">Load NSUK Venue Preset...</option>
+                    <option value="">Load Campus Venue Preset...</option>
                     {POPULAR_NSUK_VENUES.map(v => (
                       <option key={v.name} value={v.name} className="dark:bg-navy-dark">{v.name}</option>
                     ))}
