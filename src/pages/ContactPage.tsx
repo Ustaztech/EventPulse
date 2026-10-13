@@ -47,7 +47,7 @@ export const ContactPage: React.FC = () => {
               <MapPin className="w-5 h-5 text-turquoise shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-white text-sm">Main Campus Keffi</p>
-                <p className="text-slate-300">Directorate of ICT & Academic Planning, Senate Building Complex, Keffi, Nasarawa State</p>
+                <p className="text-slate-300">EventPulse Campus Operations Hub, Innovation Center, Main Campus</p>
               </div>
             </div>
 
@@ -55,8 +55,8 @@ export const ContactPage: React.FC = () => {
               <Mail className="w-5 h-5 text-teal shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-white text-sm">Official Email</p>
-                <p className="text-slate-300">eventpulse@nsuk.edu.ng</p>
-                <p className="text-slate-400">helpdesk@nsuk.edu.ng</p>
+                <p className="text-slate-300">support@eventpulse.com.ng</p>
+                <p className="text-slate-400">contact@eventpulse.com.ng</p>
               </div>
             </div>
 
@@ -75,7 +75,7 @@ export const ContactPage: React.FC = () => {
           {submitted && (
             <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>Your message has been dispatched to the NSUK ICT EventPulse team. We will respond promptly via email.</span>
+              <span>Your message has been dispatched to the EventPulse Support Team. We will respond promptly via email.</span>
             </div>
           )}
 
@@ -99,7 +99,7 @@ export const ContactPage: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="f.umar@nsuk.edu.ng"
+                  placeholder="f.umar@eventpulse.com.ng"
                   className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-royal/30"
                   required
                 />

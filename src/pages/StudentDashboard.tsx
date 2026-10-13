@@ -89,15 +89,15 @@ export const StudentDashboard: React.FC = () => {
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//NSUK EventPulse//Event Management//EN',
+      'PRODID:-//EventPulse//Event Management//EN',
       'BEGIN:VEVENT',
-      `UID:${reg.referenceCode}@nsuk.edu.ng`,
+      `UID:${reg.referenceCode}@eventpulse.com.ng`,
       `DTSTAMP:${formatICSDate(new Date().toISOString())}`,
       `DTSTART:${formatICSDate(evt.startTime)}`,
       `DTEND:${formatICSDate(evt.endTime)}`,
       `SUMMARY:${evt.title}`,
       `DESCRIPTION:${evt.description.replace(/\n/g, ' ')} \\n\\nTicket Ref: ${reg.referenceCode}`,
-      `LOCATION:${evt.venueName || 'NSUK'} ${evt.campusArea || 'Main Campus'}`,
+      `LOCATION:${evt.venueName || 'Campus Main Hall'} ${evt.campusArea || 'Main Campus'}`,
       'STATUS:CONFIRMED',
       'END:VEVENT',
       'END:VCALENDAR'
@@ -338,17 +338,17 @@ export const StudentDashboard: React.FC = () => {
                 <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Application Submitted Successfully</span>
               </div>
-              <p>Your request has been routed to the NSUK Directorate for review. You will receive an in-app and email alert once approved.</p>
+              <p>Your request has been routed to the EventPulse Committee for review. You will receive an in-app and email alert once approved.</p>
             </div>
           ) : (
             <form onSubmit={handleApplyOrganizer} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Organization or Department Name</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Organization or Society Name</label>
                 <input
                   type="text"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
-                  placeholder="e.g. Google Developer Student Club NSUK / SUG Directorate"
+                  placeholder="e.g. Developer Student Club / Campus Society"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium"
                   required
                 />

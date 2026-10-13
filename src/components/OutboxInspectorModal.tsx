@@ -31,8 +31,8 @@ export const OutboxInspectorModal: React.FC<OutboxInspectorModalProps> = ({ isOp
 
     db.enqueueOutboxJob({
       recipientEmail: testEmail,
-      recipientName: 'NSUK Test Recipient',
-      subject: 'Test Announcement: NSUK EventPulse Delivery Check',
+      recipientName: 'Campus Test Recipient',
+      subject: 'Test Announcement: EventPulse Delivery Check',
       bodyHtml: `
         <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #cbd5e1;border-radius:12px;">
           <h2 style="color:#1E40AF;">EventPulse - Email Delivery Test</h2>
@@ -40,7 +40,7 @@ export const OutboxInspectorModal: React.FC<OutboxInspectorModalProps> = ({ isOp
           <div style="background:#f0fdf4;padding:12px;border-radius:6px;color:#166534;">
             Status: Connection Active & Verified.
           </div>
-          <p style="font-size:12px;color:#64748b;margin-top:20px;">Nasarawa State University, Keffi</p>
+          <p style="font-size:12px;color:#64748b;margin-top:20px;">support@eventpulse.com.ng</p>
         </div>
       `,
       bodyText: 'EventPulse Email Delivery Test. Connection Active & Verified.',

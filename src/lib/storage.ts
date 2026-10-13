@@ -47,7 +47,7 @@ const SYSTEM_INITIAL_LOGS: AuditLog[] = [
     action: 'SYSTEM_BOOTSTRAP',
     entityType: 'System',
     entityId: 'NSUK-EVENTPULSE-CORE',
-    details: 'NSUK EventPulse production engine initialized. Waiting for administrator account creation.',
+    details: 'EventPulse production engine initialized. Waiting for administrator account creation.',
     ipAddress: '102.89.44.12',
     createdAt: new Date().toISOString(),
   }
@@ -119,6 +119,19 @@ class EventPulseStorage {
     if (!localStorage.getItem(STORAGE_KEYS.LOGS)) {
       this.set(STORAGE_KEYS.LOGS, SYSTEM_INITIAL_LOGS);
     }
+
+    // Ensure all existing registered users receive an automated welcome email in the outbox
+    const users = this.getUsers();
+    users.forEach(u => {
+      const outbox = this.getOutboxJobs();
+      const hasWelcome = outbox.some(j => j.idempotencyKey === `welcome-user-${u.id}`);
+      if (!hasWelcome) {
+        this.sendWelcomeEmail(u);
+      }
+    });
+
+    // Run automated lifecycle scanner on startup
+    this.runAutomatedLifecycleScan();
   }
 
   // --- Auth & Users ---
@@ -184,15 +197,8 @@ class EventPulseStorage {
       unsubscribeToken: `unsub-${Date.now()}`
     });
 
-    // In-App Welcome Notification
-    this.addInAppNotification({
-      userId: newUser.id,
-      title: 'Welcome to EventPulse NSUK!',
-      message: isSuperAdminEmail 
-        ? 'Welcome Super Administrator. Full NSUK management privileges unlocked.' 
-        : `Your account has been registered as ${assignedRole}. Welcome to EventPulse.`,
-      type: 'ANNOUNCEMENT'
-    });
+    // Send Automated Welcome Notification Email and In-App alert
+    this.sendWelcomeEmail(newUser);
 
     this.logAction(newUser.id, newUser.name, 'USER_REGISTER', 'User', newUser.id, `Account registered as ${assignedRole}.`);
     return newUser;
@@ -607,29 +613,316 @@ class EventPulseStorage {
     return true;
   }
 
-  // Broadcast Triggers
-  private broadcastNewEventPublished(event: Event) {
+  // ========================================================
+  // AUTOMATED LIFECYCLE EMAIL NOTIFICATION DISPATCH ENGINE
+  // ========================================================
+
+  /**
+   * 1. AUTOMATED WELCOME MESSAGE
+   * Automatically triggered when any user registers an account.
+   */
+  public sendWelcomeEmail(user: User): EmailOutboxJob {
+    const isSuperAdminEmail = user.email.trim().toLowerCase() === EventPulseStorage.SUPER_ADMIN_EMAIL.toLowerCase();
+
+    // In-App Welcome notification
+    this.addInAppNotification({
+      userId: user.id,
+      title: isSuperAdminEmail ? 'Welcome Super Administrator!' : 'Welcome to EventPulse!',
+      message: isSuperAdminEmail 
+        ? 'Welcome Super Administrator. Full EventPulse management and moderation privileges unlocked.' 
+        : `Your account has been registered as ${user.role}. You will receive automatic email notifications for new events, upcoming reminders, and live sessions.`,
+      type: 'ANNOUNCEMENT'
+    });
+
+    // Enqueue automated welcome email to outbox
+    return this.enqueueOutboxJob({
+      recipientEmail: user.email,
+      recipientName: user.name,
+      subject: 'Welcome to EventPulse: Campus Event Discovery & Smart Notification Engine',
+      bodyHtml: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <div style="background: linear-gradient(135deg, #1E40AF, #0D9488); padding: 32px 24px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">Welcome to EventPulse!</h1>
+            <p style="margin: 8px 0 0; font-size: 14px; opacity: 0.95;">Campus Event Management & Automated Notification Dispatch</p>
+          </div>
+          <div style="padding: 28px 24px; color: #334155; line-height: 1.6;">
+            <p style="font-size: 15px; margin-top: 0;">Dear <strong>${user.name}</strong>,</p>
+            <p>Welcome to <strong>EventPulse</strong>! Your campus account (<strong>${user.email}</strong>) is active as <strong>${user.role}</strong>.</p>
+            <div style="background: #f8fafc; border-left: 4px solid #0D9488; padding: 16px; margin: 20px 0; border-radius: 6px;">
+              <h4 style="margin: 0 0 8px; color: #0F172A; font-size: 14px;">Automated Notification Service Active:</h4>
+              <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.7;">
+                <li><strong>New Event Announcements:</strong> Automated notifications whenever new campus events are published.</li>
+                <li><strong>Countdown Reminders:</strong> Automated notifications sent 24 hours and 1 hour before scheduled start time.</li>
+                <li><strong>Live "Happening Now" Alerts:</strong> Instant notices when sessions and workshops go live.</li>
+                <li><strong>Instant Digital Pass Delivery:</strong> Verified entry QR reference sent to your inbox upon registration.</li>
+              </ul>
+            </div>
+            <p style="font-size: 13px; color: #64748b;">You can review your campus tickets, inspect the delivery queue, or adjust notification preferences anytime in your EventPulse dashboard.</p>
+            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
+              Dispatched automatically by EventPulse Campus Mail &bull; <a href="mailto:support@eventpulse.com.ng" style="color: #1E40AF; text-decoration: none; font-weight: bold;">support@eventpulse.com.ng</a>
+            </div>
+          </div>
+        </div>
+      `,
+      bodyText: `Welcome to EventPulse, ${user.name}! Your account is active as ${user.role}. You will receive automatic notifications for new events, 24h/1h reminders, and live sessions. Contact support@eventpulse.com.ng for assistance.`,
+      notificationType: 'ANNOUNCEMENT',
+      userId: user.id,
+      idempotencyKey: `welcome-user-${user.id}`
+    });
+  }
+
+  /**
+   * 2. AUTOMATED NEW EVENT PUBLISHED BROADCAST
+   * Automatically triggered when an event is added and published.
+   */
+  public broadcastNewEventPublished(event: Event): { count: number } {
     const users = this.getUsers().filter(u => u.emailVerified);
+    let count = 0;
+
     users.forEach(u => {
+      const prefs = this.getPreferences(u.id);
+      if (!prefs.emailAnnouncements) return;
+
       this.addInAppNotification({
         userId: u.id,
         title: `New Event: ${event.title}`,
-        message: `A new campus event has been scheduled at ${event.venueName || 'NSUK'}.`,
+        message: `A new campus event "${event.title}" has been scheduled for ${new Date(event.startTime).toLocaleDateString()} at ${event.venueName || 'Campus Main Hall'}.`,
         type: 'ANNOUNCEMENT',
         eventId: event.id
       });
+
       this.enqueueOutboxJob({
         recipientEmail: u.email,
         recipientName: u.name,
-        subject: `New Campus Event: ${event.title}`,
-        bodyHtml: `<h3>${event.title}</h3><p>${event.description}</p><p><strong>Venue:</strong> ${event.venueName || 'Online'}</p>`,
-        bodyText: `New Campus Event: ${event.title} - ${event.description}`,
+        subject: `New Campus Event Added: ${event.title}`,
+        bodyHtml: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+            <div style="background: linear-gradient(135deg, #1E40AF, #3B82F6); padding: 28px 24px; color: #ffffff;">
+              <span style="background: rgba(255,255,255,0.22); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">New Event Announcement</span>
+              <h1 style="margin: 12px 0 0; font-size: 22px; font-weight: 800; line-height: 1.3;">${event.title}</h1>
+            </div>
+            <div style="padding: 24px; color: #334155; line-height: 1.6;">
+              <p style="font-size: 15px; margin-top: 0;">Dear <strong>${u.name}</strong>,</p>
+              <p>A new campus event has just been scheduled and registration is now open:</p>
+              <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin: 18px 0;">
+                <p style="margin: 0 0 6px; font-size: 13px;"><strong>Category:</strong> ${event.categoryName || 'Campus Activity'}</p>
+                <p style="margin: 0 0 6px; font-size: 13px;"><strong>Date & Time:</strong> ${new Date(event.startTime).toLocaleString()}</p>
+                <p style="margin: 0 0 6px; font-size: 13px;"><strong>Venue:</strong> ${event.venueName || 'Campus Main Hall'} (${event.campusArea || 'Main Campus'})</p>
+                ${event.landmark ? `<p style="margin: 0 0 6px; font-size: 12px; color: #64748b;"><strong>Landmark:</strong> ${event.landmark}</p>` : ''}
+                <p style="margin: 10px 0 0; font-size: 13px; color: #475569;">${event.description}</p>
+              </div>
+              <p style="font-size: 13px;">Reserve your seat and claim your verified digital pass inside your EventPulse dashboard.</p>
+              <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
+                Dispatched automatically by EventPulse Mail Engine &bull; <a href="mailto:support@eventpulse.com.ng" style="color: #1E40AF; text-decoration: none; font-weight: bold;">support@eventpulse.com.ng</a>
+              </div>
+            </div>
+          </div>
+        `,
+        bodyText: `New Campus Event Added: ${event.title}\nDate: ${new Date(event.startTime).toLocaleString()}\nVenue: ${event.venueName || 'Campus Main Hall'}\nDescription: ${event.description}\nReserve your pass on EventPulse.`,
         notificationType: 'ANNOUNCEMENT',
         eventId: event.id,
         userId: u.id,
         idempotencyKey: `new-evt-${event.id}-${u.id}`
       });
+      count += 1;
     });
+
+    this.logAction(event.organizerId, event.organizerName, 'NOTIFICATION_BROADCAST', 'Event', event.id, `Broadcasted new event notification to ${count} campus members.`);
+    return { count };
+  }
+
+  /**
+   * 3. AUTOMATED REMINDER NOTIFICATION (ABOUT TO HAPPEN)
+   * Automatically triggered 24 hours and 1 hour before scheduled start time.
+   */
+  public broadcastEventAboutToHappen(eventId: string, reminderType: 'REMINDER_24H' | 'REMINDER_1H'): { count: number } {
+    const event = this.getEventById(eventId);
+    if (!event) return { count: 0 };
+
+    const regs = this.getRegistrations().filter(r => r.eventId === eventId && r.status === 'CONFIRMED');
+    const targetAudience = regs.length > 0 
+      ? regs.map(r => ({ email: r.userEmail, name: r.userName, userId: r.userId, ref: r.referenceCode }))
+      : this.getUsers().slice(0, 3).map(u => ({ email: u.email, name: u.name, userId: u.id, ref: 'EP-REMINDER' }));
+
+    const is1H = reminderType === 'REMINDER_1H';
+    const timeLabel = is1H ? '1 Hour' : '24 Hours';
+    const urgencySubject = is1H 
+      ? `Starting in 1 Hour: ${event.title} - Doors Opening Soon!` 
+      : `Starting Tomorrow (24h Reminder): ${event.title}`;
+
+    let count = 0;
+    targetAudience.forEach(target => {
+      // In-App Notification
+      this.addInAppNotification({
+        userId: target.userId,
+        title: is1H ? `Starting in 1 Hour: ${event.title}` : `Starting Tomorrow: ${event.title}`,
+        message: is1H 
+          ? `Doors open soon! "${event.title}" kicks off in 1 hour at ${event.venueName || 'Campus Main Hall'}. Reference: ${target.ref}.` 
+          : `Reminder: "${event.title}" takes place tomorrow at ${new Date(event.startTime).toLocaleTimeString()}. Venue: ${event.venueName || 'Campus Main Hall'}.`,
+        type: reminderType,
+        eventId: event.id
+      });
+
+      // Automated Outbox Job
+      this.enqueueOutboxJob({
+        recipientEmail: target.email,
+        recipientName: target.name,
+        subject: urgencySubject,
+        bodyHtml: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+            <div style="background: ${is1H ? 'linear-gradient(135deg, #D97706, #EA580C)' : 'linear-gradient(135deg, #1E40AF, #0D9488)'}; padding: 26px 24px; color: #ffffff;">
+              <span style="background: rgba(255,255,255,0.25); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase;">
+                ${is1H ? 'Final Countdown &bull; Starting in 1 Hour' : 'Event Reminder &bull; Tomorrow in 24 Hours'}
+              </span>
+              <h1 style="margin: 12px 0 0; font-size: 22px; font-weight: 800; line-height: 1.3;">${event.title}</h1>
+            </div>
+            <div style="padding: 24px; color: #334155; line-height: 1.6;">
+              <p style="font-size: 15px; margin-top: 0;">Dear <strong>${target.name}</strong>,</p>
+              <p>This is an automated reminder that your scheduled campus event begins in <strong>${timeLabel}</strong>:</p>
+              <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin: 18px 0;">
+                <p style="margin: 0 0 6px; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;">Ticket Reference Pass:</p>
+                <p style="margin: 0 0 12px; font-size: 18px; font-weight: 900; color: #1E40AF; letter-spacing: 0.5px;">${target.ref}</p>
+                <p style="margin: 0 0 6px; font-size: 13px;"><strong>Scheduled Kickoff:</strong> ${new Date(event.startTime).toLocaleString()}</p>
+                <p style="margin: 0 0 6px; font-size: 13px;"><strong>Venue:</strong> ${event.venueName || 'Campus Main Hall'} (${event.campusArea || 'Main Campus'})</p>
+                ${event.landmark ? `<p style="margin: 0 0 6px; font-size: 12px; color: #64748b;"><strong>Landmark:</strong> ${event.landmark}</p>` : ''}
+                ${event.arrivalInstructions ? `<p style="margin: 8px 0 0; font-size: 12px; color: #475569;"><strong>Arrival Instructions:</strong> ${event.arrivalInstructions}</p>` : ''}
+              </div>
+              <p style="font-size: 13px;">Please have your pass QR code ready on your phone when arriving at the venue door.</p>
+              <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
+                Dispatched automatically by EventPulse Mail Engine &bull; <a href="mailto:support@eventpulse.com.ng" style="color: #1E40AF; text-decoration: none; font-weight: bold;">support@eventpulse.com.ng</a>
+              </div>
+            </div>
+          </div>
+        `,
+        bodyText: `Reminder: ${event.title} begins in ${timeLabel}!\nVenue: ${event.venueName || 'Campus Main Hall'}\nPass Code: ${target.ref}\nTime: ${new Date(event.startTime).toLocaleString()}`,
+        notificationType: reminderType,
+        eventId: event.id,
+        userId: target.userId,
+        idempotencyKey: `reminder-${reminderType.toLowerCase()}-${event.id}-${target.userId}`
+      });
+      count += 1;
+    });
+
+    this.logAction(undefined, 'Automated Scheduler', 'REMINDER_DISPATCHED', 'Event', eventId, `Dispatched ${reminderType} reminder to ${count} participants.`);
+    return { count };
+  }
+
+  /**
+   * 4. AUTOMATED LIVE KICKOFF NOTICE (HAPPENING NOW)
+   * Automatically triggered when an event commences live.
+   */
+  public broadcastEventHappeningNow(eventId: string): { count: number } {
+    const event = this.getEventById(eventId);
+    if (!event) return { count: 0 };
+
+    const regs = this.getRegistrations().filter(r => r.eventId === eventId && r.status === 'CONFIRMED');
+    const targetAudience = regs.length > 0 
+      ? regs.map(r => ({ email: r.userEmail, name: r.userName, userId: r.userId, ref: r.referenceCode }))
+      : this.getUsers().slice(0, 3).map(u => ({ email: u.email, name: u.name, userId: u.id, ref: 'EP-LIVE' }));
+
+    let count = 0;
+    targetAudience.forEach(target => {
+      // In-App Notification
+      this.addInAppNotification({
+        userId: target.userId,
+        title: `Happening Now: ${event.title}`,
+        message: `Live Kickoff! "${event.title}" is underway right now at ${event.venueName || 'Campus Main Hall'}. Doors are open!`,
+        type: 'STARTING_NOW',
+        eventId: event.id
+      });
+
+      // Automated Outbox Job
+      this.enqueueOutboxJob({
+        recipientEmail: target.email,
+        recipientName: target.name,
+        subject: `Happening Now: ${event.title} is Officially Underway!`,
+        bodyHtml: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
+            <div style="background: linear-gradient(135deg, #059669, #10B981); padding: 26px 24px; color: #ffffff;">
+              <span style="background: rgba(255,255,255,0.25); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase;">
+                Live Now &bull; Doors Open
+              </span>
+              <h1 style="margin: 12px 0 0; font-size: 22px; font-weight: 800; line-height: 1.3;">${event.title} is Happening Now!</h1>
+            </div>
+            <div style="padding: 24px; color: #334155; line-height: 1.6;">
+              <p style="font-size: 15px; margin-top: 0;">Dear <strong>${target.name}</strong>,</p>
+              <p>The stage is set and the event is officially live right now!</p>
+              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 18px; margin: 18px 0;">
+                <p style="margin: 0 0 6px; font-size: 13px;"><strong>Venue:</strong> ${event.venueName || 'Campus Main Hall'} (${event.campusArea || 'Main Campus'})</p>
+                ${event.buildingHall ? `<p style="margin: 0 0 6px; font-size: 13px;"><strong>Hall / Room:</strong> ${event.buildingHall} - ${event.roomNumber || 'Main Space'}</p>` : ''}
+                ${event.landmark ? `<p style="margin: 0 0 6px; font-size: 12px; color: #047857;"><strong>Landmark:</strong> ${event.landmark}</p>` : ''}
+                <p style="margin: 8px 0 0; font-size: 13px; font-weight: bold; color: #065f46;">Pass Reference: ${target.ref}</p>
+              </div>
+              <p style="font-size: 13px;">Head over to the venue check-in desk now to scan your digital ticket.</p>
+              <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
+                Dispatched automatically by EventPulse Mail Engine &bull; <a href="mailto:support@eventpulse.com.ng" style="color: #1E40AF; text-decoration: none; font-weight: bold;">support@eventpulse.com.ng</a>
+              </div>
+            </div>
+          </div>
+        `,
+        bodyText: `Happening Now: ${event.title} is officially live right now at ${event.venueName || 'Campus Main Hall'}!\nReference: ${target.ref}`,
+        notificationType: 'STARTING_NOW',
+        eventId: event.id,
+        userId: target.userId,
+        idempotencyKey: `now-${event.id}-${target.userId}`
+      });
+      count += 1;
+    });
+
+    this.logAction(undefined, 'Automated Scheduler', 'LIVE_DISPATCHED', 'Event', eventId, `Dispatched Happening Now notice to ${count} participants.`);
+    return { count };
+  }
+
+  /**
+   * 5. AUTOMATED LIFECYCLE SCHEDULER SCANNER
+   * Scans all published events against current time to trigger approaching reminders and live alerts.
+   */
+  public runAutomatedLifecycleScan(): { dispatched24h: number; dispatched1h: number; dispatchedNow: number } {
+    const events = this.getEvents().filter(e => e.status === 'PUBLISHED');
+    const now = Date.now();
+    let dispatched24h = 0;
+    let dispatched1h = 0;
+    let dispatchedNow = 0;
+
+    events.forEach(event => {
+      const startMs = new Date(event.startTime).getTime();
+      const endMs = new Date(event.endTime).getTime();
+      const diffMs = startMs - now;
+      const oneHourMs = 60 * 60 * 1000;
+      const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+
+      // Event about to happen (within 24 hours, but > 1 hour away)
+      if (diffMs > oneHourMs && diffMs <= twentyFourHoursMs) {
+        const outbox = this.getOutboxJobs();
+        const alreadySent = outbox.some(j => j.idempotencyKey.startsWith(`reminder-reminder_24h-${event.id}`));
+        if (!alreadySent) {
+          const res = this.broadcastEventAboutToHappen(event.id, 'REMINDER_24H');
+          dispatched24h += res.count;
+        }
+      }
+
+      // Event about to happen (within 1 hour and > 0)
+      if (diffMs > 0 && diffMs <= oneHourMs) {
+        const outbox = this.getOutboxJobs();
+        const alreadySent = outbox.some(j => j.idempotencyKey.startsWith(`reminder-reminder_1h-${event.id}`));
+        if (!alreadySent) {
+          const res = this.broadcastEventAboutToHappen(event.id, 'REMINDER_1H');
+          dispatched1h += res.count;
+        }
+      }
+
+      // Event happening now (now >= startMs and now <= endMs or within 3 hours of start)
+      if (now >= startMs && (now <= endMs || (now - startMs < 3 * oneHourMs))) {
+        const outbox = this.getOutboxJobs();
+        const alreadySent = outbox.some(j => j.idempotencyKey.startsWith(`now-${event.id}`));
+        if (!alreadySent) {
+          const res = this.broadcastEventHappeningNow(event.id);
+          dispatchedNow += res.count;
+        }
+      }
+    });
+
+    return { dispatched24h, dispatched1h, dispatchedNow };
   }
 
   private broadcastEventUpdate(event: Event, changeReason: string) {
@@ -789,4 +1082,8 @@ export const db = new EventPulseStorage();
 
 if (typeof window !== 'undefined') {
   (window as unknown as { db: EventPulseStorage }).db = db;
+  // Periodic background scanner: automatically checks approaching events and live kickoffs
+  setInterval(() => {
+    db.runAutomatedLifecycleScan();
+  }, 45000);
 }

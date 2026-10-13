@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Inbox, 
   Send, 
   Star, 
   Trash2, 
-  Archive, 
   Mail, 
   MailOpen, 
   RefreshCw, 
@@ -13,27 +13,27 @@ import {
   CheckSquare, 
   Square, 
   ArrowLeft, 
-  Paperclip, 
   Clock, 
   ShieldCheck, 
   ExternalLink, 
   X, 
   Minimize2, 
   Maximize2, 
-  Tag, 
   Ticket, 
   Bell, 
-  AlertCircle, 
   CheckCircle2, 
-  MoreVertical,
   Reply,
   Forward,
-  Printer,
-  Sparkles
+  Sparkles,
+  Zap,
+  Calendar,
+  Layers,
+  ChevronDown,
+  Info
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
-import { InAppNotification, EmailOutboxJob, DeliveryStatus } from '../lib/types';
+import { DeliveryStatus } from '../lib/types';
 
 export interface EmailItem {
   id: string;
@@ -47,9 +47,11 @@ export interface EmailItem {
   isRead: boolean;
   isStarred: boolean;
   category: 'tickets' | 'announcements' | 'updates' | 'general';
+  lifecycleType?: 'WELCOME' | 'NEW_EVENT' | 'ABOUT_TO_HAPPEN' | 'HAPPENING_NOW' | 'TICKET' | 'BROADCAST' | 'GENERAL';
   status?: DeliveryStatus | 'SENT' | string;
   ticketRef?: string;
   eventId?: string;
+  eventSlug?: string;
 }
 
 interface GmailMailingSystemProps {
@@ -60,6 +62,7 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
   initialFolder = 'inbox'
 }) => {
   const { currentUser, refreshUserData } = useAuth();
+  const navigate = useNavigate();
   
   const [activeFolder, setActiveFolder] = useState<'inbox' | 'starred' | 'sent' | 'outbox' | 'trash'>(initialFolder);
   const [categoryTab, setCategoryTab] = useState<'all' | 'tickets' | 'announcements' | 'updates'>('all');
@@ -70,6 +73,8 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showEngineConsole, setShowEngineConsole] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Compose State
@@ -81,8 +86,8 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
   const [composeBody, setComposeBody] = useState('');
   const [isSending, setIsSending] = useState(false);
 
-  // Local sent storage
-  const [sentMails, setSentMails] = useState<EmailItem[]>([]);
+  // Locally sent emails
+  const [locallySentMails, setLocallySentMails] = useState<EmailItem[]>([]);
 
   if (!currentUser) return null;
 
@@ -90,12 +95,18 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
   const rawNotifications = db.getInAppNotifications(currentUser.id);
   const rawOutbox = db.getOutboxJobs();
   const rawRegistrations = db.getUserRegistrations(currentUser.id);
+  const allEvents = db.getEvents();
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Convert notifications and registrations into authentic email representations
   const inboxEmails: EmailItem[] = useMemo(() => {
     const list: EmailItem[] = [];
 
-    // Registration confirmation emails
+    // 1. Digital Ticket Pass emails from user registrations
     rawRegistrations.forEach((reg) => {
       const id = `ticket-email-${reg.id}`;
       const eventTitle = reg.event?.title || 'Campus Event';
@@ -105,36 +116,54 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
         senderEmail: 'support@eventpulse.com.ng',
         recipientEmail: reg.userEmail || currentUser.email,
         subject: `Confirmed: Digital Pass for ${eventTitle} (${reg.referenceCode})`,
-        preview: `Your official pass is confirmed. Reference: ${reg.referenceCode}. Venue: ${reg.event?.venueName || 'Main Campus'}.`,
+        preview: `Your official pass is confirmed. Reference: ${reg.referenceCode}. Venue: ${reg.event?.venueName || 'Main Campus Hall'}.`,
         body: `
           <p>Dear <strong>${reg.userName}</strong>,</p>
           <p>Your seat reservation for <strong>${eventTitle}</strong> is successfully confirmed.</p>
           <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px; margin: 18px 0;">
-            <p style="margin: 0 0 8px; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;">Ticket Reference:</p>
+            <p style="margin: 0 0 8px; font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold;">Ticket Reference Pass:</p>
             <p style="margin: 0 0 12px; font-size: 20px; font-weight: 900; color: #1E40AF; letter-spacing: 1px;">${reg.referenceCode}</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Date & Time:</strong> ${new Date(reg.event?.startTime || reg.registeredAt).toLocaleString()}</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Venue:</strong> ${reg.event?.venueName || 'Campus Main Hall'} (${reg.event?.campusArea || 'Main Campus'})</p>
             ${reg.event?.landmark ? `<p style="margin: 4px 0; font-size: 12px; color: #64748b;"><strong>Landmark:</strong> ${reg.event.landmark}</p>` : ''}
           </div>
-          <p>Please present this digital pass or your QR code inside the EventPulse dashboard at entrance validation.</p>
+          <p>Please present this digital pass or your QR code inside your EventPulse dashboard at entrance validation.</p>
         `,
         date: reg.registeredAt,
         isRead: readIds.has(id),
         isStarred: starredIds.has(id),
         category: 'tickets',
+        lifecycleType: 'TICKET',
         status: 'DELIVERED',
         ticketRef: reg.referenceCode,
-        eventId: reg.eventId
+        eventId: reg.eventId,
+        eventSlug: reg.event?.slug
       });
     });
 
-    // In-app notifications converted into system broadcast emails
+    // 2. In-app notifications converted into system broadcast emails
     rawNotifications.forEach((n) => {
       const id = `notif-email-${n.id}`;
       let cat: 'tickets' | 'announcements' | 'updates' | 'general' = 'general';
-      if (n.type === 'REGISTRATION_CONFIRMATION') cat = 'tickets';
-      else if (n.type === 'ANNOUNCEMENT') cat = 'announcements';
-      else if (n.type === 'EVENT_UPDATE' || n.type === 'EVENT_CANCELLED') cat = 'updates';
+      let lifecycle: EmailItem['lifecycleType'] = 'GENERAL';
+      const eventObj = n.eventId ? allEvents.find(e => e.id === n.eventId) : undefined;
+
+      if (n.type === 'REGISTRATION_CONFIRMATION') {
+        cat = 'tickets';
+        lifecycle = 'TICKET';
+      } else if (n.type === 'ANNOUNCEMENT') {
+        cat = 'announcements';
+        lifecycle = n.title.toLowerCase().includes('welcome') ? 'WELCOME' : 'NEW_EVENT';
+      } else if (n.type === 'REMINDER_24H' || n.type === 'REMINDER_1H') {
+        cat = 'updates';
+        lifecycle = 'ABOUT_TO_HAPPEN';
+      } else if (n.type === 'STARTING_NOW') {
+        cat = 'updates';
+        lifecycle = 'HAPPENING_NOW';
+      } else if (n.type === 'EVENT_UPDATE' || n.type === 'EVENT_CANCELLED') {
+        cat = 'updates';
+        lifecycle = 'BROADCAST';
+      }
 
       list.push({
         id,
@@ -148,7 +177,7 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
           <p>${n.message}</p>
           <div style="background: #f1f5f9; border-left: 4px solid #0D9488; padding: 14px; margin: 16px 0; border-radius: 4px;">
             <p style="margin: 0; font-size: 13px; color: #334155;"><strong>Notice Category:</strong> ${n.type.replace(/_/g, ' ')}</p>
-            <p style="margin: 4px 0 0; font-size: 11px; color: #64748b;">Timestamp: ${new Date(n.createdAt).toLocaleString()}</p>
+            <p style="margin: 4px 0 0; font-size: 11px; color: #64748b;">Dispatched: ${new Date(n.createdAt).toLocaleString()}</p>
           </div>
           <p>For more details, visit your EventPulse dashboard.</p>
         `,
@@ -156,60 +185,101 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
         isRead: n.isRead || readIds.has(id),
         isStarred: starredIds.has(id),
         category: cat,
+        lifecycleType: lifecycle,
         status: 'DELIVERED',
-        eventId: n.eventId
+        eventId: n.eventId,
+        eventSlug: eventObj?.slug
       });
     });
 
-    // Welcome email if inbox is sparse
-    list.push({
-      id: 'welcome-eventpulse-mail',
-      senderName: 'EventPulse Welcome Team',
-      senderEmail: 'support@eventpulse.com.ng',
-      recipientEmail: currentUser.email,
-      subject: 'Welcome to EventPulse: Campus Event Discovery & Smart Notification Engine',
-      preview: 'Stay Connected. Never Miss an Event. Discover upcoming campus events, reserve verified passes...',
-      body: `
-        <p>Dear <strong>${currentUser.name}</strong>,</p>
-        <p>Welcome to <strong>EventPulse</strong> — the intelligent campus event discovery and notification platform.</p>
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin: 16px 0;">
-          <h4 style="margin: 0 0 8px; color: #1E40AF; font-size: 14px;">Platform Capabilities:</h4>
-          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
-            <li><strong>Digital Tickets:</strong> Instant pass reservation with scannable entry codes.</li>
-            <li><strong>Campus Mail:</strong> Automated reminders 24h & 1h prior to event commencement.</li>
-            <li><strong>GPS Maps:</strong> Verified venue landmarks and geographical directions.</li>
-          </ul>
-        </div>
-        <p>If you have questions or feedback, reply directly to this message or write to <strong>support@eventpulse.com.ng</strong>.</p>
-      `,
-      date: currentUser.createdAt || new Date().toISOString(),
-      isRead: readIds.has('welcome-eventpulse-mail'),
-      isStarred: starredIds.has('welcome-eventpulse-mail'),
-      category: 'announcements',
-      status: 'DELIVERED'
-    });
+    // 3. Welcome email guarantee
+    const hasExistingWelcome = list.some(m => m.lifecycleType === 'WELCOME');
+    if (!hasExistingWelcome) {
+      list.push({
+        id: 'welcome-eventpulse-mail',
+        senderName: 'EventPulse Welcome Team',
+        senderEmail: 'support@eventpulse.com.ng',
+        recipientEmail: currentUser.email,
+        subject: 'Welcome to EventPulse: Campus Event Discovery & Smart Notification Engine',
+        preview: 'Stay Connected. Never Miss an Event. Discover upcoming campus events, reserve verified passes...',
+        body: `
+          <p>Dear <strong>${currentUser.name}</strong>,</p>
+          <p>Welcome to <strong>EventPulse</strong> — the intelligent campus event discovery and notification platform.</p>
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin: 16px 0;">
+            <h4 style="margin: 0 0 8px; color: #1E40AF; font-size: 14px;">Automated Notification Service Active:</h4>
+            <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
+              <li><strong>New Event Announcements:</strong> Automated notices whenever new campus events are published.</li>
+              <li><strong>Countdown Reminders:</strong> Automated reminders 24h & 1h prior to kickoff.</li>
+              <li><strong>Live "Happening Now" Alerts:</strong> Instant notices when sessions and workshops go live.</li>
+              <li><strong>Digital Ticket Delivery:</strong> Instant verified passes with scannable entry codes.</li>
+            </ul>
+          </div>
+          <p>If you have questions or feedback, reply directly to this message or write to <strong>support@eventpulse.com.ng</strong>.</p>
+        `,
+        date: currentUser.createdAt || new Date().toISOString(),
+        isRead: readIds.has('welcome-eventpulse-mail'),
+        isStarred: starredIds.has('welcome-eventpulse-mail'),
+        category: 'announcements',
+        lifecycleType: 'WELCOME',
+        status: 'DELIVERED'
+      });
+    }
 
     // Sort newest first
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [rawRegistrations, rawNotifications, currentUser, readIds, starredIds]);
+  }, [rawRegistrations, rawNotifications, currentUser, readIds, starredIds, allEvents]);
 
-  // Outbox representation
+  // Outbox jobs mapping (all queue & dispatch jobs)
   const outboxEmails: EmailItem[] = useMemo(() => {
-    return rawOutbox.map((job) => ({
-      id: `outbox-${job.id}`,
-      senderName: 'EventPulse Outbox Worker',
-      senderEmail: 'support@eventpulse.com.ng',
-      recipientEmail: job.recipientEmail,
-      subject: job.subject,
-      preview: job.bodyText.slice(0, 100),
-      body: job.bodyHtml || job.bodyText,
-      date: job.scheduledFor,
-      isRead: true,
-      isStarred: starredIds.has(`outbox-${job.id}`),
-      category: 'general',
-      status: job.status
-    }));
-  }, [rawOutbox, starredIds]);
+    return rawOutbox.map((job) => {
+      let lifecycle: EmailItem['lifecycleType'] = 'GENERAL';
+      let category: EmailItem['category'] = 'general';
+      const subj = job.subject.toLowerCase();
+
+      if (job.notificationType === 'REGISTRATION_CONFIRMATION' || subj.includes('pass') || subj.includes('ticket')) {
+        lifecycle = 'TICKET';
+        category = 'tickets';
+      } else if (subj.includes('welcome')) {
+        lifecycle = 'WELCOME';
+        category = 'announcements';
+      } else if (subj.includes('new campus event') || subj.includes('new event')) {
+        lifecycle = 'NEW_EVENT';
+        category = 'announcements';
+      } else if (job.notificationType === 'REMINDER_24H' || job.notificationType === 'REMINDER_1H' || subj.includes('reminder') || subj.includes('starting in')) {
+        lifecycle = 'ABOUT_TO_HAPPEN';
+        category = 'updates';
+      } else if (job.notificationType === 'STARTING_NOW' || subj.includes('happening now')) {
+        lifecycle = 'HAPPENING_NOW';
+        category = 'updates';
+      }
+
+      const eventObj = job.eventId ? allEvents.find(e => e.id === job.eventId) : undefined;
+
+      return {
+        id: `outbox-${job.id}`,
+        senderName: 'EventPulse Notification Engine',
+        senderEmail: 'support@eventpulse.com.ng',
+        recipientEmail: job.recipientEmail,
+        subject: job.subject,
+        preview: job.bodyText.slice(0, 100),
+        body: job.bodyHtml || job.bodyText,
+        date: job.scheduledFor || job.createdAt,
+        isRead: true,
+        isStarred: starredIds.has(`outbox-${job.id}`),
+        category,
+        lifecycleType: lifecycle,
+        status: job.status,
+        eventId: job.eventId,
+        eventSlug: eventObj?.slug
+      };
+    });
+  }, [rawOutbox, starredIds, allEvents]);
+
+  // Sent Emails (Delivered automated jobs + locally composed sent messages)
+  const sentEmails: EmailItem[] = useMemo(() => {
+    const deliveredOutbox = outboxEmails.filter(m => m.status === 'DELIVERED' || m.status === 'SENT');
+    return [...locallySentMails, ...deliveredOutbox].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [locallySentMails, outboxEmails]);
 
   // Determine current email list based on active folder
   const currentList = useMemo(() => {
@@ -217,13 +287,13 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
     if (activeFolder === 'inbox') {
       list = inboxEmails.filter((m) => !trashedIds.has(m.id));
     } else if (activeFolder === 'starred') {
-      list = [...inboxEmails, ...sentMails].filter((m) => starredIds.has(m.id) && !trashedIds.has(m.id));
+      list = [...inboxEmails, ...sentEmails, ...outboxEmails].filter((m) => starredIds.has(m.id) && !trashedIds.has(m.id));
     } else if (activeFolder === 'sent') {
-      list = sentMails.filter((m) => !trashedIds.has(m.id));
+      list = sentEmails.filter((m) => !trashedIds.has(m.id));
     } else if (activeFolder === 'outbox') {
       list = outboxEmails;
     } else if (activeFolder === 'trash') {
-      list = [...inboxEmails, ...sentMails].filter((m) => trashedIds.has(m.id));
+      list = [...inboxEmails, ...sentEmails, ...outboxEmails].filter((m) => trashedIds.has(m.id));
     }
 
     // Apply category filter if in Inbox
@@ -243,22 +313,67 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
     }
 
     return list;
-  }, [activeFolder, categoryTab, searchQuery, inboxEmails, sentMails, outboxEmails, starredIds, trashedIds]);
+  }, [activeFolder, categoryTab, searchQuery, inboxEmails, sentEmails, outboxEmails, starredIds, trashedIds]);
 
   const unreadInboxCount = inboxEmails.filter((m) => !m.isRead && !trashedIds.has(m.id)).length;
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     refreshUserData();
     setTimeout(() => {
       setIsRefreshing(false);
-      showToast('Mailbox updated.');
+      showToast('Mailbox & dispatch engine synchronized.');
     }, 400);
+  };
+
+  // Automated Trigger Actions
+  const handleTriggerWelcome = () => {
+    db.sendWelcomeEmail(currentUser);
+    refreshUserData();
+    showToast(`Automated Welcome email dispatched to ${currentUser.email}`);
+  };
+
+  const handleTriggerNewEvent = () => {
+    const published = allEvents.find(e => e.status === 'PUBLISHED') || allEvents[0];
+    if (published) {
+      const res = db.broadcastNewEventPublished(published);
+      refreshUserData();
+      showToast(`Automated 'New Event Added' broadcast dispatched to ${res.count} campus members!`);
+    } else {
+      showToast('Please create or publish a campus event first.');
+    }
+  };
+
+  const handleTriggerAboutToHappen = () => {
+    const target = allEvents.find(e => e.status === 'PUBLISHED') || allEvents[0];
+    if (target) {
+      const res = db.broadcastEventAboutToHappen(target.id, 'REMINDER_1H');
+      refreshUserData();
+      showToast(`Automated 'Starting in 1 Hour' reminder dispatched for "${target.title}"!`);
+    } else {
+      showToast('No active events available to trigger countdown reminder.');
+    }
+  };
+
+  const handleTriggerHappeningNow = () => {
+    const target = allEvents.find(e => e.status === 'PUBLISHED') || allEvents[0];
+    if (target) {
+      const res = db.broadcastEventHappeningNow(target.id);
+      refreshUserData();
+      showToast(`Automated 'Happening Now' live kickoff alert dispatched for "${target.title}"!`);
+    } else {
+      showToast('No active events available to trigger live kickoff notice.');
+    }
+  };
+
+  const handleRunFullScan = () => {
+    setIsScanning(true);
+    setTimeout(() => {
+      const res = db.runAutomatedLifecycleScan();
+      refreshUserData();
+      setIsScanning(false);
+      showToast(`Lifecycle scan complete: ${res.dispatched24h} 24h reminders, ${res.dispatched1h} 1h reminders, ${res.dispatchedNow} live alerts.`);
+    }, 500);
   };
 
   const handleToggleStar = (e: React.MouseEvent, id: string) => {
@@ -343,13 +458,12 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
         isRead: true,
         isStarred: false,
         category: composeCategory,
+        lifecycleType: 'GENERAL',
         status: 'DELIVERED'
       };
 
-      // Add to sent storage
-      setSentMails((prev) => [newSentMail, ...prev]);
+      setLocallySentMails((prev) => [newSentMail, ...prev]);
 
-      // Enqueue Outbox job for audit and durable simulation
       db.enqueueOutboxJob({
         recipientEmail: composeTo.trim(),
         recipientName: composeTo.split('@')[0],
@@ -361,7 +475,6 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
         idempotencyKey: `user-mail-${Date.now()}`
       });
 
-      // Clear & Close
       setIsSending(false);
       setComposeOpen(false);
       setComposeSubject('');
@@ -370,8 +483,73 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
     }, 450);
   };
 
+  // Preset Template Fillers
+  const fillPreset = (type: 'welcome' | 'new_event' | 'reminder' | 'happening_now') => {
+    if (type === 'welcome') {
+      setComposeTo('newuser@eventpulse.com.ng');
+      setComposeSubject('Welcome to EventPulse: Campus Event Discovery & Smart Notification Engine');
+      setComposeCategory('announcements');
+      setComposeBody('Dear Student,\n\nWelcome to EventPulse! Your account is active. You will receive automatic alerts whenever new events are scheduled, approaching start time reminders (24h & 1h), and live kickoff announcements.');
+    } else if (type === 'new_event') {
+      const evt = allEvents[0];
+      setComposeTo('campus-all@eventpulse.com.ng');
+      setComposeSubject(`New Campus Event Added: ${evt?.title || 'Annual Technology Showcase'}`);
+      setComposeCategory('announcements');
+      setComposeBody(`Dear Campus Community,\n\nA new campus event "${evt?.title || 'Annual Technology Showcase'}" has been published!\n\nVenue: ${evt?.venueName || 'Campus Main Hall'}\nDate: ${new Date(evt?.startTime || Date.now()).toLocaleString()}\n\nReserve your pass in EventPulse today!`);
+    } else if (type === 'reminder') {
+      const evt = allEvents[0];
+      setComposeTo('attendees@eventpulse.com.ng');
+      setComposeSubject(`Starting in 1 Hour: ${evt?.title || 'Campus Hackathon'} - Doors Opening Soon!`);
+      setComposeCategory('updates');
+      setComposeBody(`Dear Attendee,\n\nThis is an automated reminder that "${evt?.title || 'Campus Hackathon'}" commences in 1 hour!\n\nVenue: ${evt?.venueName || 'Campus Main Hall'}\nLandmark: ${evt?.landmark || 'Adjacent to Central Library'}\n\nPlease have your digital ticket QR code ready on your phone.`);
+    } else if (type === 'happening_now') {
+      const evt = allEvents[0];
+      setComposeTo('attendees@eventpulse.com.ng');
+      setComposeSubject(`Happening Now: ${evt?.title || 'Robotics & AI Symposium'} is Officially Underway!`);
+      setComposeCategory('updates');
+      setComposeBody(`Dear Attendee,\n\nThe doors are open and "${evt?.title || 'Robotics & AI Symposium'}" is live right now!\n\nProceed to ${evt?.venueName || 'Campus Main Hall'} check-in desk to scan your pass.`);
+    }
+  };
+
+  const renderLifecycleBadge = (type?: EmailItem['lifecycleType']) => {
+    switch (type) {
+      case 'WELCOME':
+        return (
+          <span className="px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 font-bold text-[10px] flex items-center gap-1">
+            <Mail className="w-3 h-3" /> Welcome
+          </span>
+        );
+      case 'NEW_EVENT':
+        return (
+          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise font-bold text-[10px] flex items-center gap-1">
+            <Bell className="w-3 h-3" /> New Event
+          </span>
+        );
+      case 'ABOUT_TO_HAPPEN':
+        return (
+          <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1">
+            <Clock className="w-3 h-3" /> Countdown
+          </span>
+        );
+      case 'HAPPENING_NOW':
+        return (
+          <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Now
+          </span>
+        );
+      case 'TICKET':
+        return (
+          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-bold text-[10px] flex items-center gap-1">
+            <Ticket className="w-3 h-3" /> Pass
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/90 dark:border-navy-light/40 shadow-xl overflow-hidden min-h-[620px] flex flex-col relative transition-colors">
+    <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/90 dark:border-navy-light/40 shadow-xl overflow-hidden min-h-[640px] flex flex-col relative transition-colors">
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -390,9 +568,12 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-royal to-teal flex items-center justify-center text-white shadow-xs">
               <Mail className="w-4 h-4" />
             </div>
-            <span className="font-black text-sm text-slate-800 dark:text-white hidden sm:inline">
-              Campus Mail
-            </span>
+            <div className="hidden sm:block">
+              <span className="font-black text-sm text-slate-800 dark:text-white block leading-none">
+                Campus Mail
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Automatic Dispatch Engine</span>
+            </div>
           </div>
 
           <div className="relative flex-1">
@@ -401,14 +582,28 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search mail, tickets, or broadcast alerts..."
+              placeholder="Search notifications, tickets, or broadcast alerts..."
               className="w-full pl-9 pr-3.5 py-1.5 rounded-full border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#111A33] text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium transition-all"
             />
           </div>
         </div>
 
-        {/* Right: Quick Controls */}
+        {/* Right: Controls & Engine Toggle */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowEngineConsole(!showEngineConsole)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+              showEngineConsole 
+                ? 'bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise' 
+                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-navy-light/30'
+            }`}
+            title="Toggle Automated Notification Engine bar"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden md:inline">Automated Engine</span>
+          </button>
+
           <button
             type="button"
             onClick={handleRefresh}
@@ -438,7 +633,7 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
       <div className="flex flex-1 min-h-[520px]">
         
         {/* Left Gmail Navigation Folders Column */}
-        <div className="w-48 sm:w-56 border-r border-slate-200/80 dark:border-navy-light/40 p-3 space-y-4 shrink-0 bg-slate-50/40 dark:bg-[#0B132B]/30 hidden md:block">
+        <div className="w-52 sm:w-60 border-r border-slate-200/80 dark:border-navy-light/40 p-3 space-y-4 shrink-0 bg-slate-50/40 dark:bg-[#0B132B]/30 hidden md:block">
           
           <nav className="space-y-1 text-xs font-bold">
             <button
@@ -499,9 +694,9 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Send className="w-4 h-4" />
-                <span>Sent</span>
+                <span>Send Mail Box</span>
               </div>
-              <span className="text-[10px] text-slate-400">{sentMails.length}</span>
+              <span className="text-[10px] text-slate-400 font-bold">{sentEmails.length}</span>
             </button>
 
             <button
@@ -518,9 +713,9 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4" />
-                <span>Outbox Queue</span>
+                <span>Outbox Dispatch</span>
               </div>
-              <span className="text-[10px] text-slate-400">{outboxEmails.length}</span>
+              <span className="text-[10px] text-slate-400 font-bold">{outboxEmails.length}</span>
             </button>
 
             <button
@@ -545,24 +740,140 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
             </button>
           </nav>
 
-          {/* Mail Quota Information */}
-          <div className="pt-4 border-t border-slate-200/60 dark:border-navy-light/30 space-y-1.5 px-2">
-            <div className="flex items-center justify-between text-[10px] text-slate-400">
-              <span>Mail Storage</span>
-              <span>0.4 MB of 15 GB</span>
+          {/* Automated Engine Info Card */}
+          <div className="pt-4 border-t border-slate-200/60 dark:border-navy-light/30 space-y-2 px-2 text-xs">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-200">
+              <span className="flex items-center gap-1.5 text-royal dark:text-turquoise">
+                <Sparkles className="w-3.5 h-3.5" /> Auto-Triggers
+              </span>
+              <span className="text-emerald-500 font-black">ACTIVE</span>
             </div>
-            <div className="w-full h-1.5 bg-slate-200 dark:bg-navy-light/60 rounded-full overflow-hidden">
-              <div className="h-full bg-teal w-[3%]" />
+            <ul className="text-[10px] text-slate-500 dark:text-slate-400 space-y-1 leading-snug">
+              <li>&bull; Welcome on Registration</li>
+              <li>&bull; Broadcast on Event Added</li>
+              <li>&bull; 24h & 1h Countdown Reminders</li>
+              <li>&bull; Happening Now Live Alerts</li>
+            </ul>
+            <div className="pt-2 text-[9px] text-slate-400 font-mono">
+              Engine: support@eventpulse.com.ng
             </div>
-            <p className="text-[9px] text-slate-400 leading-tight">
-              Durable EventPulse Outbox Engine Active
-            </p>
           </div>
         </div>
 
         {/* Right Main Content Area: List View OR Reader View */}
         <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#111A33]">
           
+          {/* Automated Notification Engine Action Console */}
+          {showEngineConsole && !selectedEmail && (
+            <div className="p-3.5 sm:p-4 bg-gradient-to-r from-navy-dark via-navy to-slate-900 text-white border-b border-royal/30 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-black text-xs tracking-tight">
+                    Automated Notification Dispatch Engine
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono border border-emerald-500/30">
+                    4 Triggers Operational
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRunFullScan}
+                  disabled={isScanning}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-all disabled:opacity-50"
+                  title="Run automated lifecycle scan for upcoming events and kickoffs"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+                  <span>{isScanning ? 'Scanning...' : 'Scan Event Lifecycles'}</span>
+                </button>
+              </div>
+
+              {/* 4 Interactive Lifecycle Trigger Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                {/* 1. Welcome Message */}
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-teal flex items-center gap-1 text-[11px]">
+                      <Mail className="w-3 h-3" /> Welcome Message
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400">On Sign-up</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 leading-tight">
+                    Dispatched automatically upon user registration.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTriggerWelcome}
+                    className="w-full mt-1 py-1 rounded-lg bg-teal hover:bg-teal-light text-navy-dark font-black text-[10px] transition-all"
+                  >
+                    ⚡ Test Welcome Send
+                  </button>
+                </div>
+
+                {/* 2. New Event Added */}
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-turquoise flex items-center gap-1 text-[11px]">
+                      <Bell className="w-3 h-3" /> New Event Added
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400">On Publish</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 leading-tight">
+                    Broadcasted to campus members when an event is added.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTriggerNewEvent}
+                    className="w-full mt-1 py-1 rounded-lg bg-royal hover:bg-royal-light text-white font-black text-[10px] transition-all"
+                  >
+                    ⚡ Broadcast New Event
+                  </button>
+                </div>
+
+                {/* 3. About to Happen */}
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-300 flex items-center gap-1 text-[11px]">
+                      <Clock className="w-3 h-3" /> About to Happen
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400">24h / 1h Alert</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 leading-tight">
+                    Reminders sent 24h & 1h prior to kickoff.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTriggerAboutToHappen}
+                    className="w-full mt-1 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-900 font-black text-[10px] transition-all"
+                  >
+                    ⚡ Send 1h Reminder
+                  </button>
+                </div>
+
+                {/* 4. Happening Now */}
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-300 flex items-center gap-1 text-[11px]">
+                      <Sparkles className="w-3 h-3" /> Happening Now
+                    </span>
+                    <span className="text-[9px] font-mono text-emerald-300">Live Kickoff</span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 leading-tight">
+                    Instant alerts dispatched when doors open.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTriggerHappeningNow}
+                    className="w-full mt-1 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black text-[10px] transition-all"
+                  >
+                    ⚡ Send Live Alert
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {selectedEmail ? (
             /* ======================================================== */
             /* Authentic Gmail Reading Pane View                         */
@@ -610,10 +921,11 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
               </div>
 
               {/* Reader Body */}
-              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[540px]">
+              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[560px]">
                 {/* Subject Header */}
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
+                    {renderLifecycleBadge(selectedEmail.lifecycleType)}
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise">
                       {selectedEmail.category}
                     </span>
@@ -627,6 +939,29 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                     {selectedEmail.subject}
                   </h2>
                 </div>
+
+                {/* Automated Dispatch Alert Box */}
+                {selectedEmail.lifecycleType && (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-navy-dark/60 border border-slate-200/80 dark:border-navy-light/40 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span className="text-slate-600 dark:text-slate-300">
+                        <strong>Automatic Notification:</strong> Dispatched by EventPulse Mail Engine ({selectedEmail.lifecycleType.replace(/_/g, ' ')})
+                      </span>
+                    </div>
+
+                    {selectedEmail.eventSlug && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/events/${selectedEmail.eventSlug}`)}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-royal text-white font-bold text-[11px] hover:opacity-90 shrink-0"
+                      >
+                        <span>View Event</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Sender & Security Header */}
                 <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200/80 dark:border-navy-light/40">
@@ -667,7 +1002,7 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                 {/* Official Email Signature */}
                 <div className="pt-6 border-t border-slate-200/60 dark:border-navy-light/40 space-y-1 text-xs text-slate-500">
                   <p className="font-bold text-slate-800 dark:text-slate-200">
-                    EventPulse Campus Notification Engine
+                    EventPulse Automated Campus Notification Engine
                   </p>
                   <p className="text-[11px] text-slate-400">
                     "Stay Connected. Never Miss an Event." &bull; Email: support@eventpulse.com.ng
@@ -746,6 +1081,10 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                       </button>
                     </div>
                   )}
+
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider pl-1">
+                    {activeFolder === 'sent' ? 'Send Mail Box' : activeFolder === 'outbox' ? 'Outbox Queue' : activeFolder}
+                  </span>
                 </div>
 
                 {/* Category Pills (When viewing Inbox) */}
@@ -775,10 +1114,10 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                   <div className="py-20 text-center space-y-3">
                     <Mail className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      No messages found in {activeFolder}
+                      No messages found in {activeFolder === 'sent' ? 'Send Mail Box' : activeFolder}
                     </p>
                     <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
-                      All campus event notifications, admission ticket deliveries, and announcements will appear here.
+                      All campus event notifications, admission ticket deliveries, and automated announcements will appear here.
                     </p>
                   </div>
                 ) : (
@@ -835,6 +1174,11 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                           </span>
                         </div>
 
+                        {/* Lifecycle Badge */}
+                        <div className="shrink-0 hidden sm:block">
+                          {renderLifecycleBadge(email.lifecycleType)}
+                        </div>
+
                         {/* Category Badge */}
                         <div className="shrink-0 hidden md:block">
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-navy-light/40 text-slate-600 dark:text-slate-300 capitalize">
@@ -864,14 +1208,14 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
           className={`fixed z-50 transition-all duration-200 shadow-2xl rounded-t-3xl border border-slate-300 dark:border-navy-light/60 bg-white dark:bg-[#111A33] overflow-hidden ${
             composeMaximized
               ? 'inset-4 sm:inset-10'
-              : 'bottom-0 right-4 sm:right-8 w-full max-w-lg h-[500px]'
+              : 'bottom-0 right-4 sm:right-8 w-full max-w-lg h-[540px]'
           }`}
         >
           {/* Compose Window Header Bar */}
           <div className="bg-slate-900 text-white dark:bg-[#0B132B] px-4 py-2.5 flex items-center justify-between">
             <span className="font-bold text-xs flex items-center gap-2">
               <Mail className="w-3.5 h-3.5 text-turquoise" />
-              <span>New Campus Event Message</span>
+              <span>Campus Event Mailer & Automated Presets</span>
             </span>
 
             <div className="flex items-center gap-1.5 text-slate-400">
@@ -892,8 +1236,41 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
             </div>
           </div>
 
+          {/* Quick Preset Toolbar */}
+          <div className="bg-slate-100 dark:bg-navy-dark px-4 py-2 border-b border-slate-200 dark:border-navy-light/40 flex items-center gap-1.5 overflow-x-auto text-[10px]">
+            <span className="text-slate-400 font-bold shrink-0">Presets:</span>
+            <button
+              type="button"
+              onClick={() => fillPreset('welcome')}
+              className="px-2 py-0.5 rounded-md bg-white dark:bg-navy border border-slate-300 dark:border-navy-light/50 font-bold text-slate-700 dark:text-slate-200 hover:text-teal shrink-0"
+            >
+              📬 Welcome
+            </button>
+            <button
+              type="button"
+              onClick={() => fillPreset('new_event')}
+              className="px-2 py-0.5 rounded-md bg-white dark:bg-navy border border-slate-300 dark:border-navy-light/50 font-bold text-slate-700 dark:text-slate-200 hover:text-royal shrink-0"
+            >
+              📢 New Event
+            </button>
+            <button
+              type="button"
+              onClick={() => fillPreset('reminder')}
+              className="px-2 py-0.5 rounded-md bg-white dark:bg-navy border border-slate-300 dark:border-navy-light/50 font-bold text-slate-700 dark:text-slate-200 hover:text-amber-500 shrink-0"
+            >
+              ⏰ 1h Reminder
+            </button>
+            <button
+              type="button"
+              onClick={() => fillPreset('happening_now')}
+              className="px-2 py-0.5 rounded-md bg-white dark:bg-navy border border-slate-300 dark:border-navy-light/50 font-bold text-slate-700 dark:text-slate-200 hover:text-emerald-500 shrink-0"
+            >
+              🟢 Happening Now
+            </button>
+          </div>
+
           {/* Compose Form */}
-          <form onSubmit={handleSendCompose} className="p-4 flex flex-col h-[calc(100%-42px)] justify-between space-y-3">
+          <form onSubmit={handleSendCompose} className="p-4 flex flex-col h-[calc(100%-80px)] justify-between space-y-3">
             <div className="space-y-2">
               {/* Recipient */}
               <div className="flex items-center border-b border-slate-200 dark:border-navy-light/40 py-1.5 text-xs">
@@ -945,7 +1322,7 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
                 placeholder="Compose your campus event notice, query, or broadcast message..."
-                className="w-full h-48 sm:h-56 p-2 bg-transparent text-slate-800 dark:text-white focus:outline-none text-xs sm:text-sm font-medium resize-none"
+                className="w-full h-40 sm:h-48 p-2 bg-transparent text-slate-800 dark:text-white focus:outline-none text-xs sm:text-sm font-medium resize-none"
                 required
               />
             </div>
@@ -964,7 +1341,7 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
                   </>
                 ) : (
                   <>
-                    <span>Send</span>
+                    <span>Dispatch Email</span>
                     <Send className="w-3.5 h-3.5" />
                   </>
                 )}
@@ -985,4 +1362,5 @@ export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = ({
     </div>
   );
 };
+
 export default GmailMailingSystem;

@@ -43,6 +43,7 @@ export const OrganizerDashboard: React.FC = () => {
   // Broadcast state
   const [selectedBroadcastEvent, setSelectedBroadcastEvent] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastType, setBroadcastType] = useState<'UPDATE' | 'REMINDER_1H' | 'STARTING_NOW'>('UPDATE');
   const [broadcastSuccess, setBroadcastSuccess] = useState(false);
 
   // Event Creation Wizard State
@@ -234,15 +235,22 @@ export const OrganizerDashboard: React.FC = () => {
   // Broadcast Handler
   const handleBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBroadcastEvent || !broadcastMessage.trim()) return;
+    if (!selectedBroadcastEvent) return;
 
     const evt = allEvents.find(e => e.id === selectedBroadcastEvent);
     if (!evt) return;
 
-    // Trigger notification update
-    db.updateEvent(evt.id, {}, currentUser.name);
+    if (broadcastType === 'REMINDER_1H') {
+      db.broadcastEventAboutToHappen(evt.id, 'REMINDER_1H');
+    } else if (broadcastType === 'STARTING_NOW') {
+      db.broadcastEventHappeningNow(evt.id);
+    } else {
+      db.updateEvent(evt.id, {}, currentUser.name);
+    }
+
     setBroadcastSuccess(true);
     setBroadcastMessage('');
+    refreshUserData();
     setTimeout(() => setBroadcastSuccess(false), 3000);
   };
 
@@ -710,7 +718,7 @@ export const OrganizerDashboard: React.FC = () => {
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">Entrance Attendance Check-In</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Verify attendee passes using their digital code (e.g. <code>NSUK-EP-74892</code>) or camera scanner.
+              Verify attendee passes using their digital code (e.g. <code>EP-74892</code>) or camera scanner.
             </p>
           </div>
 
@@ -719,7 +727,7 @@ export const OrganizerDashboard: React.FC = () => {
               type="text"
               value={scanCode}
               onChange={(e) => setScanCode(e.target.value)}
-              placeholder="Enter Reference Code (e.g. NSUK-EP-74892)..."
+              placeholder="Enter Reference Code (e.g. EP-74892)..."
               className="w-full p-3.5 rounded-xl border border-slate-300 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-center font-mono font-bold text-base focus:outline-none focus:ring-2 focus:ring-royal"
               required
             />
@@ -778,14 +786,52 @@ export const OrganizerDashboard: React.FC = () => {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Important Update Message</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Broadcast Notification Category</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setBroadcastType('UPDATE')}
+                  className={`p-2 rounded-xl border text-center font-bold transition-all ${
+                    broadcastType === 'UPDATE' 
+                      ? 'bg-royal text-white border-royal' 
+                      : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-light/20'
+                  }`}
+                >
+                  Schedule / Venue Update
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBroadcastType('REMINDER_1H')}
+                  className={`p-2 rounded-xl border text-center font-bold transition-all ${
+                    broadcastType === 'REMINDER_1H' 
+                      ? 'bg-amber-500 text-slate-900 border-amber-500 font-black' 
+                      : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-light/20'
+                  }`}
+                >
+                  ⏰ 1-Hour Reminder
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBroadcastType('STARTING_NOW')}
+                  className={`p-2 rounded-xl border text-center font-bold transition-all ${
+                    broadcastType === 'STARTING_NOW' 
+                      ? 'bg-emerald-600 text-white border-emerald-600 font-black' 
+                      : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-navy-light/20'
+                  }`}
+                >
+                  🟢 Happening Now Alert
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Custom Note (Optional)</label>
               <textarea
                 value={broadcastMessage}
                 onChange={(e) => setBroadcastMessage(e.target.value)}
-                placeholder="e.g. Notice: Seating will commence 30 minutes earlier due to guest arrival..."
+                placeholder="e.g. Notice: Seating will commence 15 minutes earlier due to guest arrival..."
                 className="w-full p-3 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium"
-                rows={4}
-                required
+                rows={3}
               />
             </div>
 

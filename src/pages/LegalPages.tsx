@@ -18,12 +18,12 @@ export const PrivacyPage: React.FC = () => {
 
         <h3 className="text-base font-bold text-slate-900">2. Use of Information</h3>
         <p>
-          Your data is used strictly to dispatch automated event confirmations, 24-hour/1-hour calendar departure reminders, live hall location updates, and requested announcements. NSUK never sells or distributes student data to third-party commercial marketing entities.
+          Your data is used strictly to dispatch automated event confirmations, 24-hour/1-hour calendar departure reminders, live hall location updates, and requested announcements. EventPulse never sells or distributes user data to third-party commercial marketing entities.
         </p>
 
         <h3 className="text-base font-bold text-slate-900">3. Email Notifications & Unsubscribe Rights</h3>
         <p>
-          In compliance with student communication guidelines, you may opt out of optional announcement newsletters at any time via your Profile Preferences or by using the direct 1-click unsubscribe links located in the footer of all optional notification emails.
+          In compliance with communication guidelines, you may opt out of optional announcement newsletters at any time via your Profile Preferences or by using the direct 1-click unsubscribe links located in the footer of all optional notification emails.
         </p>
 
         <h3 className="text-base font-bold text-slate-900">4. Data Security</h3>
@@ -40,7 +40,7 @@ export const TermsPage: React.FC = () => {
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-6 pb-20">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="text-3xl font-black text-slate-900">Terms of Service</h1>
-        <p className="text-xs text-slate-500 mt-1">Nasarawa State University, Keffi (NSUK)</p>
+        <p className="text-xs text-slate-500 mt-1">EventPulse Campus Management Platform</p>
       </div>
 
       <div className="prose prose-slate max-w-none text-xs sm:text-sm text-slate-700 space-y-4 leading-relaxed">
@@ -95,12 +95,12 @@ export const UnsubscribePage: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={handleUnsubscribe} className="space-y-3 pt-2 text-xs text-left">
-            <label className="font-bold text-slate-700">Enter Your University Email Address</label>
+            <label className="font-bold text-slate-700">Enter Your Campus Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. student@nsuk.edu.ng"
+              placeholder="e.g. student@eventpulse.com.ng"
               className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-royal"
               required
             />

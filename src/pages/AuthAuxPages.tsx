@@ -17,7 +17,7 @@ export const VerifyEmailPage: React.FC = () => {
   };
 
   const handleSimulateAutoCode = () => {
-    setCode('NSUK-9482');
+    setCode('EP-9482');
   };
 
   return (
@@ -25,9 +25,9 @@ export const VerifyEmailPage: React.FC = () => {
       <div className="max-w-md w-full space-y-6">
         <div className="text-center space-y-2">
           <BrandLogo size="lg" className="justify-center" />
-          <h2 className="text-2xl font-black text-slate-900 mt-4">Verify Your NSUK Email</h2>
+          <h2 className="text-2xl font-black text-slate-900 mt-4">Verify Your Campus Email</h2>
           <p className="text-xs text-slate-500">
-            A 6-digit confirmation code was sent to your university address.
+            A 6-digit confirmation code was sent to your campus email address.
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export const VerifyEmailPage: React.FC = () => {
                   className="text-xs font-bold text-royal hover:underline flex items-center gap-1.5"
                 >
                   <KeyRound className="w-3.5 h-3.5" />
-                  <span>Sandbox: Fill test code (NSUK-9482)</span>
+                  <span>Sandbox: Fill test code (EP-9482)</span>
                 </button>
               </div>
 
