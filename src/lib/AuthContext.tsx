@@ -1,47 +1,66 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Role } from './types';
+import { User } from './types';
 import { db } from './storage';
 
 interface AuthContextType {
   currentUser: User | null;
   unreadCount: number;
-  login: (email: string, passwordHash: string) => { success: boolean; error?: string };
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
+  adminLogin: (email: string, password: string, mfaCode?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  register: (userData: Omit<User, 'id' | 'createdAt' | 'emailVerified'>) => User;
-  switchRole: (role: Role) => void;
-  refreshUserData: () => void;
+  register: (userData: {
+    name: string;
+    email: string;
+    password: string;
+    userType: 'STUDENT' | 'STAFF';
+    matricOrStaffId?: string;
+    department?: string;
+    faculty?: string;
+    phone?: string;
+  }) => Promise<{ success: boolean; user?: User; error?: string }>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    db.init();
-    return db.getCurrentUser();
-  });
-  const [unreadCount, setUnreadCount] = useState<number>(() => {
-    const user = db.getCurrentUser();
-    if (!user) return 0;
-    const notifs = db.getInAppNotifications(user.id);
-    return notifs.filter(n => !n.isRead).length;
-  });
-
-  useEffect(() => {
-    db.init();
-    const user = db.getCurrentUser();
-    setCurrentUser(user);
-    if (user) {
-      updateUnread(user.id);
-    }
-  }, []);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => db.getCurrentUser());
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const updateUnread = (userId: string) => {
     const notifs = db.getInAppNotifications(userId);
     setUnreadCount(notifs.filter(n => !n.isRead).length);
   };
 
-  const login = (email: string, pass: string) => {
-    const res = db.login(email, pass);
+  const refreshUserData = async () => {
+    await db.syncFromBackend();
+    const user = db.getCurrentUser();
+    setCurrentUser(user);
+    if (user) updateUnread(user.id);
+  };
+
+  useEffect(() => {
+    db.init().then(() => {
+      const user = db.getCurrentUser();
+      setCurrentUser(user);
+      if (user) {
+        updateUnread(user.id);
+      }
+    });
+  }, []);
+
+  const login = async (email: string, pass: string, rememberMe?: boolean) => {
+    const res = await db.login(email, pass, rememberMe);
+    if (res.user) {
+      setCurrentUser(res.user);
+      updateUnread(res.user.id);
+      return { success: true };
+    }
+    return { success: false, error: res.error };
+  };
+
+  const adminLogin = async (email: string, pass: string, mfaCode?: string) => {
+    const res = await db.adminLogin(email, pass, mfaCode);
     if (res.user) {
       setCurrentUser(res.user);
       updateUnread(res.user.id);
@@ -56,31 +75,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUnreadCount(0);
   };
 
-  const register = (userData: Omit<User, 'id' | 'createdAt' | 'emailVerified'>) => {
-    const user = db.registerUser(userData);
-    setCurrentUser(user);
-    updateUnread(user.id);
-    return user;
-  };
-
-  const switchRole = (role: Role) => {
-    const users = db.getUsers();
-    const targetUser = users.find(u => u.role === role);
-    if (targetUser) {
-      db.setCurrentUser(targetUser);
-      setCurrentUser(targetUser);
-      updateUnread(targetUser.id);
+  const register = async (userData: {
+    name: string;
+    email: string;
+    password: string;
+    userType: 'STUDENT' | 'STAFF';
+    matricOrStaffId?: string;
+    department?: string;
+    faculty?: string;
+    phone?: string;
+  }) => {
+    const res = await db.registerUser(userData);
+    if (res.user) {
+      setCurrentUser(res.user);
+      updateUnread(res.user.id);
+      return { success: true, user: res.user };
     }
-  };
-
-  const refreshUserData = () => {
-    const user = db.getCurrentUser();
-    setCurrentUser(user);
-    if (user) updateUnread(user.id);
+    return { success: false, error: res.error };
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, unreadCount, login, logout, register, switchRole, refreshUserData }}>
+    <AuthContext.Provider value={{ currentUser, unreadCount, login, adminLogin, logout, register, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

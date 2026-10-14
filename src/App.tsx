@@ -13,6 +13,7 @@ import { HomePage } from './pages/HomePage';
 import { ExplorePage } from './pages/ExplorePage';
 import { EventDetailsPage } from './pages/EventDetailsPage';
 import { LoginPage } from './pages/LoginPage';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage, ResetPasswordPage } from './pages/AuthAuxPages';
 import { StudentDashboard } from './pages/StudentDashboard';
@@ -23,6 +24,7 @@ import { ProfilePreferencesPage } from './pages/ProfilePreferencesPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { PrivacyPage, TermsPage, UnsubscribePage } from './pages/LegalPages';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 export function App() {
   const [initialLoading, setInitialLoading] = useState(true);
@@ -46,6 +48,7 @@ export function App() {
                 <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/events/:slug" element={<EventDetailsPage />} />
                 <Route path="/auth/login" element={<LoginPage />} />
+                <Route path="/auth/admin-login" element={<AdminLoginPage />} />
                 <Route path="/auth/register" element={<RegisterPage />} />
                 <Route path="/auth/verify" element={<VerifyEmailPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
@@ -101,8 +104,8 @@ export function App() {
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
-                {/* Catch-all redirect */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Explicit 404 Not Found Page */}
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </main>
             <Footer />

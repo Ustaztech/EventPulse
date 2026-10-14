@@ -64,14 +64,12 @@ export const StudentDashboard: React.FC = () => {
     }
   };
 
-  const handleApplyOrganizer = (e: React.FormEvent) => {
+  const handleApplyOrganizer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgName.trim() || !reason.trim()) return;
 
-    db.submitApplication({
+    await db.submitApplication({
       userId: currentUser.id,
-      userName: currentUser.name,
-      userEmail: currentUser.email,
       organizationName: orgName.trim(),
       department: currentUser.department,
       faculty: currentUser.faculty,
@@ -81,6 +79,7 @@ export const StudentDashboard: React.FC = () => {
     setAppliedSuccess(true);
     setOrgName('');
     setReason('');
+    refreshUserData();
   };
 
   // Helper to generate and download .ics calendar file

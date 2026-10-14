@@ -1,39 +1,26 @@
 import { User, Role } from './types';
 
-export const SUPER_ADMIN_EMAIL = 'yahayazaid2021@gmail.com';
-
-/**
- * Checks if the user is the designated Super Administrator.
- */
-export function isSuperAdmin(user: User | null | undefined): boolean {
-  if (!user || !user.email) return false;
-  return user.email.trim().toLowerCase() === SUPER_ADMIN_EMAIL;
-}
-
 /**
  * Checks if a user has any of the specified roles.
  */
 export function hasRole(user: User | null | undefined, allowedRoles: Role[]): boolean {
   if (!user) return false;
-  // If user is super admin email, they have access to all role actions
-  if (isSuperAdmin(user)) return true;
   return allowedRoles.includes(user.role);
 }
 
 /**
  * Can user access the Administrator Dashboard and administrative actions.
+ * Strictly checks the cryptographically verified role.
  */
 export function canAccessAdmin(user: User | null | undefined): boolean {
-  if (!user) return false;
-  return user.role === 'ADMIN' || isSuperAdmin(user);
+  return user?.role === 'ADMIN';
 }
 
 /**
  * Can user access Organizer Workspace and event management actions.
  */
 export function canAccessOrganizer(user: User | null | undefined): boolean {
-  if (!user) return false;
-  return user.role === 'ORGANIZER' || user.role === 'ADMIN' || isSuperAdmin(user);
+  return user?.role === 'ORGANIZER' || user?.role === 'ADMIN';
 }
 
 /**
@@ -53,7 +40,7 @@ export function canManageEvent(user: User | null | undefined, eventOrganizerId: 
 }
 
 /**
- * Can user configure global mailing platform credentials (Resend / MailerLite API keys).
+ * Can user configure global mailing platform credentials.
  */
 export function canManageMailingSettings(user: User | null | undefined): boolean {
   return canAccessAdmin(user);

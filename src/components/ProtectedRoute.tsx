@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { Role } from '../lib/types';
-import { hasRole, isSuperAdmin, getDefaultDashboardRoute } from '../lib/rbac';
+import { hasRole, getDefaultDashboardRoute } from '../lib/rbac';
 import { db } from '../lib/storage';
 
 interface ProtectedRouteProps {
@@ -24,10 +24,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles
 }) => {
-  const { currentUser, refreshUserData } = useAuth();
+  const { currentUser } = useAuth();
   const effectiveUser = currentUser || db.getCurrentUser();
   const location = useLocation();
-  const navigate = useNavigate();
 
   // 1. Unauthenticated Check: Redirect to login with return path
   if (!effectiveUser) {
@@ -37,14 +36,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // 2. Role Authorization Check
   if (allowedRoles && allowedRoles.length > 0 && !hasRole(effectiveUser, allowedRoles)) {
-    const isSuper = isSuperAdmin(effectiveUser);
-
-    const handleElevateSuperAdmin = () => {
-      db.promoteToAdmin(effectiveUser.id);
-      refreshUserData();
-      window.location.reload();
-    };
-
     return (
       <div className="min-h-[calc(100vh-140px)] flex items-center justify-center bg-slate-50 dark:bg-navy-dark py-12 px-4 sm:px-6">
         <div className="max-w-lg w-full bg-white dark:bg-[#111A33] rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200/90 dark:border-navy-light/40 space-y-6 text-center">
@@ -90,27 +81,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               </span>
             </div>
           </div>
-
-          {/* Super Admin Quick Claim (if logged in as yahayazaid2021@gmail.com) */}
-          {isSuper && effectiveUser.role !== 'ADMIN' && (
-            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-left space-y-2">
-              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold text-xs">
-                <Crown className="w-4 h-4 text-amber-600" />
-                <span>Super Administrator Detected</span>
-              </div>
-              <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                You are logged in with the official Super Admin address. Click below to activate full root privileges.
-              </p>
-              <button
-                type="button"
-                onClick={handleElevateSuperAdmin}
-                className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Crown className="w-3.5 h-3.5" />
-                <span>Activate Administrator Privileges</span>
-              </button>
-            </div>
-          )}
 
           {/* Action Navigation Options */}
           <div className="space-y-2.5 pt-2">

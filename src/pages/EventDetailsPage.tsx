@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calendar, 
@@ -18,9 +18,12 @@ import {
   ExternalLink,
   Lock,
   ChevronRight,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import { db } from '../lib/storage';
+import { api } from '../lib/api';
+import { Event, EventFeedback } from '../lib/types';
 import { useAuth } from '../lib/AuthContext';
 import { MapPreviewModal } from '../components/MapPreviewModal';
 import { DigitalTicketModal } from '../components/DigitalTicketModal';
@@ -35,6 +38,15 @@ export const EventDetailsPage: React.FC = () => {
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   
+  // Dynamic event and feedback state
+  const [eventData, setEventData] = useState<Event | null>(() => {
+    return db.getEvents().find(e => e.slug === slug || e.id === slug) || null;
+  });
+  const [loadingEvent, setLoadingEvent] = useState(!eventData);
+  const [serverFeedbacks, setServerFeedbacks] = useState<EventFeedback[]>([]);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
   // Feedback state
   const [rating, setRating] = useState(5);
   const [feedbackText, setFeedbackText] = useState('');
@@ -43,12 +55,98 @@ export const EventDetailsPage: React.FC = () => {
   // Error/Success state
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const event = db.getEvents().find(e => e.slug === slug);
+  useEffect(() => {
+    let isMounted = true;
+    async function loadEvent() {
+      if (!slug) return;
+      try {
+        const res = await api.getEventBySlug(slug);
+        if (res?.event && isMounted) {
+          const mapped: Event = {
+            id: res.event.id,
+            title: res.event.title,
+            slug: res.event.slug,
+            description: res.event.description,
+            bannerUrl: res.event.banner_url,
+            categoryId: res.event.category_id,
+            categoryName: res.event.category_name,
+            categorySlug: res.event.category_slug,
+            categoryColor: res.event.category_color,
+            organizerId: res.event.organizer_id,
+            organizerName: res.event.organizer_name,
+            organizerContact: res.event.organizer_contact,
+            targetAudience: res.event.target_audience,
+            targetFaculty: res.event.target_faculty,
+            targetDepartment: res.event.target_department,
+            startTime: res.event.start_time,
+            endTime: res.event.end_time,
+            timezone: res.event.timezone || 'Africa/Lagos',
+            format: res.event.format,
+            venueName: res.event.venue_name,
+            buildingHall: res.event.building_hall,
+            roomNumber: res.event.room_number,
+            campusArea: res.event.campus_area,
+            address: res.event.address,
+            landmark: res.event.landmark,
+            latitude: res.event.latitude,
+            longitude: res.event.longitude,
+            directionsUrl: res.event.directions_url,
+            onlinePlatform: res.event.online_platform,
+            onlineJoinLink: res.event.online_join_link,
+            restrictJoinLink: res.event.restrict_join_link === 1,
+            requiresRegistration: res.event.requires_registration === 1,
+            capacity: res.event.capacity,
+            registeredCount: res.event.registered_count || 0,
+            registrationDeadline: res.event.registration_deadline,
+            accessibilityInfo: res.event.accessibility_info,
+            arrivalInstructions: res.event.arrival_instructions,
+            status: res.event.status,
+            approvalFeedback: res.event.approval_feedback,
+            createdAt: res.event.created_at,
+            updatedAt: res.event.updated_at,
+          };
+          setEventData(mapped);
+
+          // Fetch event feedback
+          const fbRes = await api.getEventFeedback(res.event.id).catch(() => ({ feedbacks: [] }));
+          if (fbRes?.feedbacks && isMounted) {
+            setServerFeedbacks(fbRes.feedbacks.map(f => ({
+              id: f.id,
+              eventId: f.event_id,
+              userId: f.user_id,
+              userName: f.user_name || 'Attendee',
+              rating: f.rating,
+              comment: f.comment,
+              createdAt: f.created_at,
+            })));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load event from API:', e);
+      } finally {
+        if (isMounted) setLoadingEvent(false);
+      }
+    }
+
+    loadEvent();
+    return () => { isMounted = false; };
+  }, [slug]);
+
+  const event = eventData || db.getEvents().find(e => e.slug === slug || e.id === slug);
+
+  if (loadingEvent && !event) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-28 text-center space-y-4">
+        <Loader2 className="w-10 h-10 animate-spin text-teal mx-auto" />
+        <p className="text-slate-500 text-sm">Loading event details...</p>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
-        <h2 className="text-2xl font-black text-slate-800">Event Not Found</h2>
+        <h2 className="text-2xl font-black text-slate-800 dark:text-white">Event Not Found</h2>
         <p className="text-slate-500 text-sm">The requested campus event may have been moved or removed.</p>
         <Link to="/explore" className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-sm">
           <ArrowLeft className="w-4 h-4" /> Back to Explore
@@ -80,20 +178,27 @@ export const EventDetailsPage: React.FC = () => {
   const isDeadlinePassed = event.registrationDeadline ? now > new Date(event.registrationDeadline) : false;
 
   // Feedbacks
-  const feedbacks = db.getEventFeedbacks(event.id);
+  const feedbacks = serverFeedbacks.length > 0 ? serverFeedbacks : db.getEventFeedbacks(event.id);
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!currentUser) {
       navigate(`/auth/login?redirect=${encodeURIComponent(location.pathname)}`);
       return;
     }
     setActionError(null);
-    const res = db.registerForEvent(event.id, currentUser);
-    if (!res.success) {
-      setActionError(res.error || 'Failed to register.');
-    } else {
-      refreshUserData();
-      setTicketModalOpen(true);
+    setIsRegistering(true);
+    try {
+      const res = await db.registerForEvent(event.id, currentUser);
+      if (!res.success) {
+        setActionError(res.error || 'Failed to register.');
+      } else {
+        await refreshUserData();
+        setTicketModalOpen(true);
+      }
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to register.');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -112,18 +217,36 @@ export const EventDetailsPage: React.FC = () => {
     refreshUserData();
   };
 
-  const handleFeedbackSubmit = (e: React.FormEvent) => {
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !feedbackText.trim()) return;
-    db.addFeedback({
-      eventId: event.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      rating,
-      comment: feedbackText.trim()
-    });
-    setFeedbackText('');
-    setFeedbackSubmitted(true);
+    setIsSubmittingFeedback(true);
+    try {
+      const ok = await db.addFeedback({
+        eventId: event.id,
+        userId: currentUser.id,
+        rating,
+        comment: feedbackText.trim()
+      });
+      if (ok) {
+        setFeedbackText('');
+        setFeedbackSubmitted(true);
+        const fbRes = await api.getEventFeedback(event.id).catch(() => ({ feedbacks: [] }));
+        if (fbRes?.feedbacks) {
+          setServerFeedbacks(fbRes.feedbacks.map(f => ({
+            id: f.id,
+            eventId: f.event_id,
+            userId: f.user_id,
+            userName: f.user_name || 'Attendee',
+            rating: f.rating,
+            comment: f.comment,
+            createdAt: f.created_at,
+          })));
+        }
+      }
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
   };
 
   return (
@@ -500,10 +623,20 @@ export const EventDetailsPage: React.FC = () => {
               ) : (
                 <button
                   onClick={handleRegister}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white shadow-lg shadow-royal/20 transition-all flex items-center justify-center gap-2"
+                  disabled={isRegistering}
+                  className="w-full py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white shadow-lg shadow-royal/20 transition-all flex items-center justify-center gap-2 disabled:opacity-75"
                 >
-                  <span>Register for Event</span>
-                  <ChevronRight className="w-4 h-4" />
+                  {isRegistering ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Securing Reservation...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Register for Event</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               )}
 

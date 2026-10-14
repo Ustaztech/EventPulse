@@ -69,10 +69,10 @@ export const POPULAR_NSUK_VENUES: NSUKCampusLocation[] = [
     lng: 7.8741
   },
   {
-    name: 'ICT Centre Auditorium',
+    name: 'Technology & Innovation Auditorium',
     campus: 'Main Campus, Keffi',
-    building: 'Directorate of ICT Hub',
-    address: 'ICT Drive, Main Campus, Keffi',
+    building: 'Innovation Hub',
+    address: 'Innovation Drive, Main Campus, Keffi',
     landmark: 'Adjacent to Senate Complex',
     lat: 8.8492,
     lng: 7.8755

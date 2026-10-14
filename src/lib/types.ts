@@ -3,7 +3,15 @@ export type UserType = 'STUDENT' | 'STAFF' | 'ALUMNI' | 'EXTERNAL';
 export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type TargetAudience = 'UNIVERSITY_WIDE' | 'FACULTY' | 'DEPARTMENT' | 'INTEREST';
 export type EventFormat = 'PHYSICAL' | 'ONLINE' | 'HYBRID';
-export type EventStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'CANCELLED';
+export type EventStatus = 
+  | 'DRAFT' 
+  | 'PENDING_APPROVAL' 
+  | 'PUBLISHED' 
+  | 'RETURNED_FOR_REVISION' 
+  | 'REJECTED' 
+  | 'CANCELLED' 
+  | 'COMPLETED' 
+  | 'ARCHIVED';
 export type RegistrationStatus = 'CONFIRMED' | 'CANCELLED' | 'ATTENDED';
 export type NotificationType = 
   | 'ANNOUNCEMENT' 
@@ -12,14 +20,15 @@ export type NotificationType =
   | 'REMINDER_1H' 
   | 'STARTING_NOW' 
   | 'EVENT_UPDATE' 
-  | 'EVENT_CANCELLED';
-export type DeliveryStatus = 'QUEUED' | 'PROCESSING' | 'SENT' | 'DELIVERED' | 'BOUNCED' | 'FAILED';
+  | 'EVENT_CANCELLED'
+  | 'PASSWORD_RESET'
+  | 'EMAIL_VERIFICATION';
+export type DeliveryStatus = 'QUEUED' | 'PROCESSING' | 'SENT' | 'DELIVERED' | 'BOUNCED' | 'FAILED' | 'SUPPRESSED';
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  passwordHash: string;
   role: Role;
   userType: UserType;
   matricOrStaffId?: string;
@@ -65,6 +74,7 @@ export interface Event {
   bannerUrl?: string;
   categoryId: string;
   categoryName?: string;
+  categorySlug?: string;
   categoryColor?: string;
   organizerId: string;
   organizerName: string;
@@ -113,6 +123,7 @@ export interface Registration {
   userName: string;
   userEmail: string;
   referenceCode: string;
+  qrToken?: string;
   status: RegistrationStatus;
   registeredAt: string;
   attendedAt?: string;
@@ -188,4 +199,20 @@ export interface EventFeedback {
   rating: number;
   comment?: string;
   createdAt: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  referenceCode: string;
+  userId?: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  adminNotes?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }

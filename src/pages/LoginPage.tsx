@@ -29,16 +29,16 @@ export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const res = login(email, password);
+    try {
+      const res = await login(email, password, rememberMe);
       setIsLoading(false);
       if (!res.success) {
-        setError(res.error || 'Authentication failed. Please verify your email and password.');
+        setError(res.error || 'Authentication failed. Please check your credentials.');
       } else {
         if (redirectParam) {
           navigate(decodeURIComponent(redirectParam));
@@ -47,7 +47,10 @@ export const LoginPage: React.FC = () => {
           navigate(getDefaultDashboardRoute(loggedUser));
         }
       }
-    }, 350);
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || 'Network error occurred during login.');
+    }
   };
 
   return (
@@ -162,12 +165,20 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Sign Up Link */}
-          <div className="pt-2 text-center text-xs text-slate-600 dark:text-slate-300">
-            Don't have an account?{' '}
-            <Link to="/auth/register" className="font-bold text-royal dark:text-turquoise hover:underline">
-              Create an Account
-            </Link>
+          {/* Sign Up Link & Distinct Admin Login */}
+          <div className="pt-2 text-center text-xs text-slate-600 dark:text-slate-300 space-y-2">
+            <div>
+              Don't have an account?{' '}
+              <Link to="/auth/register" className="font-bold text-royal dark:text-turquoise hover:underline">
+                Create an Account
+              </Link>
+            </div>
+            <div className="pt-1 border-t border-slate-100 dark:border-navy-light/40">
+              <Link to="/auth/admin-login" className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Dedicated Administrator Portal Sign In</span>
+              </Link>
+            </div>
           </div>
         </div>
 

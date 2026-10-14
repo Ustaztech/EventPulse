@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
+import { api } from '../lib/api';
 import { Event, TargetAudience, EventFormat } from '../lib/types';
 import { CATEGORY_DEFINITIONS, POPULAR_NSUK_VENUES, NSUK_CAMPUSES, NSUK_FACULTIES } from '../lib/nsuk-data';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
@@ -38,6 +39,7 @@ export const OrganizerDashboard: React.FC = () => {
 
   // Scanner State
   const [scanCode, setScanCode] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{ success: boolean; msg: string } | null>(null);
 
   // Broadcast state
@@ -64,6 +66,7 @@ export const OrganizerDashboard: React.FC = () => {
   const [endDate, setEndDate] = useState(getTomorrowDate());
   const [endTime, setEndTime] = useState('14:00');
   const [formStatus, setFormStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Location
   const [venueName, setVenueName] = useState(POPULAR_NSUK_VENUES[0].name);
@@ -113,7 +116,7 @@ export const OrganizerDashboard: React.FC = () => {
     }
   };
 
-  const handleCreateSubmit = (asDraft: boolean) => {
+  const handleCreateSubmit = async (asDraft: boolean) => {
     if (!title.trim() || !description.trim() || !startDate) {
       setFormStatus({ type: 'error', message: 'Please provide event title, description, and start date.' });
       return;
@@ -125,128 +128,148 @@ export const OrganizerDashboard: React.FC = () => {
       : new Date(`${startDate}T${endTime}:00`).toISOString();
 
     const selectedCategoryObj = CATEGORY_DEFINITIONS.find(c => c.slug === categoryId) || CATEGORY_DEFINITIONS[0];
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString().slice(-4);
-
     const venue = POPULAR_NSUK_VENUES.find(v => v.name === venueName);
 
-    const isDirectPublish = !asDraft && currentUser.role === 'ADMIN';
-    const eventStatus: Event['status'] = asDraft 
-      ? 'DRAFT' 
-      : isDirectPublish 
-      ? 'PUBLISHED' 
-      : 'PENDING_APPROVAL';
+    setIsSubmitting(true);
+    setFormStatus(null);
 
-    db.saveEvent({
-      title: title.trim(),
-      slug,
-      description: description.trim(),
-      bannerUrl,
-      categoryId,
-      categoryName: selectedCategoryObj.name,
-      categoryColor: selectedCategoryObj.color,
-      organizerId: currentUser.id,
-      organizerName: currentUser.name,
-      organizerContact: `${currentUser.email} | ${currentUser.phone || '+234 800 000 0000'}`,
-      targetAudience,
-      startTime: startISO,
-      endTime: endISO,
-      timezone: 'Africa/Lagos',
-      format,
-      venueName: format !== 'ONLINE' ? venueName : undefined,
-      buildingHall: format !== 'ONLINE' ? buildingHall : undefined,
-      roomNumber: format !== 'ONLINE' ? roomNumber : undefined,
-      campusArea: format !== 'ONLINE' ? campusArea : undefined,
-      address: format !== 'ONLINE' ? address : undefined,
-      landmark: format !== 'ONLINE' ? landmark : undefined,
-      latitude: venue?.lat,
-      longitude: venue?.lng,
-      directionsUrl: venue ? `https://maps.google.com/?q=${venue.lat},${venue.lng}` : undefined,
-      onlinePlatform: format !== 'PHYSICAL' ? onlinePlatform : undefined,
-      onlineJoinLink: format !== 'PHYSICAL' ? onlineJoinLink : undefined,
-      restrictJoinLink: true,
-      requiresRegistration: true,
-      capacity: capacity ? parseInt(capacity) : undefined,
-      accessibilityInfo,
-      arrivalInstructions,
-      status: eventStatus
-    });
+    try {
+      await db.saveEvent({
+        title: title.trim(),
+        description: description.trim(),
+        bannerUrl,
+        categoryId: selectedCategoryObj.slug || 'cat-1',
+        categoryName: selectedCategoryObj.name,
+        categoryColor: selectedCategoryObj.color,
+        organizerId: currentUser.id,
+        organizerName: currentUser.name,
+        organizerContact: `${currentUser.email} | ${currentUser.phone || '+234 800 000 0000'}`,
+        targetAudience,
+        startTime: startISO,
+        endTime: endISO,
+        timezone: 'Africa/Lagos',
+        format,
+        venueName: format !== 'ONLINE' ? venueName : undefined,
+        buildingHall: format !== 'ONLINE' ? buildingHall : undefined,
+        roomNumber: format !== 'ONLINE' ? roomNumber : undefined,
+        campusArea: format !== 'ONLINE' ? campusArea : undefined,
+        address: format !== 'ONLINE' ? address : undefined,
+        landmark: format !== 'ONLINE' ? landmark : undefined,
+        latitude: venue?.lat,
+        longitude: venue?.lng,
+        directionsUrl: venue ? `https://maps.google.com/?q=${venue.lat},${venue.lng}` : undefined,
+        onlinePlatform: format !== 'PHYSICAL' ? onlinePlatform : undefined,
+        onlineJoinLink: format !== 'PHYSICAL' ? onlineJoinLink : undefined,
+        restrictJoinLink: true,
+        requiresRegistration: true,
+        capacity: capacity ? parseInt(capacity) : undefined,
+        accessibilityInfo,
+        arrivalInstructions,
+        asDraft,
+        status: asDraft ? 'DRAFT' : (currentUser.role === 'ADMIN' ? 'PUBLISHED' : 'PENDING_APPROVAL')
+      });
 
-    refreshUserData();
-    setFormStatus({
-      type: 'success',
-      message: asDraft 
-        ? 'Event saved as Draft!' 
-        : isDirectPublish 
-        ? 'Event published successfully! Active for registrations.' 
-        : 'Event submitted for Administrator approval!'
-    });
-    setActiveTab('events');
+      await refreshUserData();
+      setFormStatus({
+        type: 'success',
+        message: asDraft 
+          ? 'Event saved as Draft!' 
+          : currentUser.role === 'ADMIN' 
+          ? 'Event published successfully! Active for registrations.' 
+          : 'Event proposal submitted for Administrator approval!'
+      });
+      setActiveTab('events');
+    } catch (err: any) {
+      setFormStatus({ type: 'error', message: err?.message || 'Failed to create event.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Check-in Scanner Handler
-  const handleCheckIn = (e: React.FormEvent) => {
+  const handleCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scanCode.trim()) return;
 
-    const res = db.checkInAttendee(scanCode.trim(), currentUser.name);
-    if (res.success && res.attendee) {
-      setScanResult({
-        success: true,
-        msg: `Verified! ${res.attendee.userName} (${res.attendee.userEmail}) checked in.`
-      });
-      setScanCode('');
-    } else {
+    setIsScanning(true);
+    setScanResult(null);
+
+    try {
+      const res = await db.checkInAttendee(scanCode.trim(), currentUser.name);
+      if (res.success && res.attendee) {
+        setScanResult({
+          success: true,
+          msg: `Verified! ${res.attendee.userName} (${res.attendee.userEmail}) checked in successfully.`
+        });
+        setScanCode('');
+        await refreshUserData();
+      } else {
+        setScanResult({
+          success: false,
+          msg: res.error || 'Failed to verify pass code.'
+        });
+      }
+    } catch (err: any) {
       setScanResult({
         success: false,
-        msg: res.error || 'Failed to verify pass code.'
+        msg: err?.message || 'Failed to verify pass code.'
       });
+    } finally {
+      setIsScanning(false);
     }
   };
 
   // CSV Export Handler
-  const exportParticipantRoster = (eventId: string, eventTitle: string) => {
-    const regs = db.getRegistrations().filter(r => r.eventId === eventId);
-    if (regs.length === 0) {
-      setFormStatus({ type: 'error', message: 'No registrations recorded yet for this event.' });
-      return;
+  const exportParticipantRoster = async (eventId: string, eventTitle: string) => {
+    try {
+      let attendees: any[] = [];
+      try {
+        const res = await api.getEventAttendees(eventId);
+        if (res?.attendees) attendees = res.attendees;
+      } catch {
+        attendees = db.getRegistrations().filter(r => r.eventId === eventId);
+      }
+
+      if (attendees.length === 0) {
+        setFormStatus({ type: 'error', message: 'No registrations recorded yet for this event.' });
+        return;
+      }
+
+      const headers = ['Reference Code', 'Full Name', 'Email Address', 'Status', 'Registration Date', 'Attended Time'];
+      const rows = attendees.map((r: any) => [
+        r.reference_code || r.referenceCode,
+        `"${r.user_name || r.userName}"`,
+        r.user_email || r.userEmail,
+        r.status,
+        new Date(r.registered_at || r.registeredAt).toLocaleString(),
+        r.attended_at || r.attendedAt ? new Date(r.attended_at || r.attendedAt).toLocaleString() : 'N/A'
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${eventTitle.slice(0, 20)}-roster.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      setFormStatus({ type: 'error', message: err?.message || 'Failed to export attendee roster.' });
     }
-
-    const headers = ['Reference Code', 'Full Name', 'Email Address', 'Status', 'Registration Date', 'Attended Time'];
-    const rows = regs.map(r => [
-      r.referenceCode,
-      `"${r.userName}"`,
-      r.userEmail,
-      r.status,
-      new Date(r.registeredAt).toLocaleString(),
-      r.attendedAt ? new Date(r.attendedAt).toLocaleString() : 'N/A'
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${eventTitle.slice(0, 20)}-roster.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // Broadcast Handler
-  const handleBroadcast = (e: React.FormEvent) => {
+  const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBroadcastEvent) return;
 
     const evt = allEvents.find(e => e.id === selectedBroadcastEvent);
     if (!evt) return;
 
-    if (broadcastType === 'REMINDER_1H') {
-      db.broadcastEventAboutToHappen(evt.id, 'REMINDER_1H');
-    } else if (broadcastType === 'STARTING_NOW') {
-      db.broadcastEventHappeningNow(evt.id);
-    } else {
-      db.updateEvent(evt.id, {}, currentUser.name);
-    }
+    await db.updateEvent(evt.id, {
+      description: broadcastMessage.trim() ? `${evt.description}\n\n[Organizer Broadcast]: ${broadcastMessage.trim()}` : evt.description
+    }, currentUser.name);
 
     setBroadcastSuccess(true);
     setBroadcastMessage('');
@@ -701,17 +724,23 @@ export const OrganizerDashboard: React.FC = () => {
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-navy-light/40">
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => handleCreateSubmit(true)}
-                className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-navy-light/60 hover:bg-slate-50 dark:hover:bg-navy-light/20 text-slate-700 dark:text-slate-300 font-bold text-xs"
+                className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-navy-light/60 hover:bg-slate-50 dark:hover:bg-navy-light/20 text-slate-700 dark:text-slate-300 font-bold text-xs disabled:opacity-60"
               >
-                Save as Draft
+                {isSubmitting ? 'Saving...' : 'Save as Draft'}
               </button>
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => handleCreateSubmit(false)}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white font-bold text-xs shadow-md"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white font-bold text-xs shadow-md disabled:opacity-60"
               >
-                {currentUser.role === 'ADMIN' ? 'Publish Event Directly' : 'Submit for Admin Approval'}
+                {isSubmitting 
+                  ? 'Submitting...' 
+                  : currentUser.role === 'ADMIN' 
+                  ? 'Publish Event Directly' 
+                  : 'Submit for Admin Approval'}
               </button>
             </div>
           </div>

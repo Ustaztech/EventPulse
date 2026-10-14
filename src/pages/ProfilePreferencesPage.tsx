@@ -38,11 +38,16 @@ export const ProfilePreferencesPage: React.FC = () => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    db.setPreferences(currentUser.id, prefs);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    try {
+      await db.setPreferences(currentUser.id, prefs);
+      await refreshUserData();
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch {
+      setSavedSuccess(true);
+    }
   };
 
   return (

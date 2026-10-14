@@ -35,14 +35,7 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isSuperAdminEmail = currentUser?.email.trim().toLowerCase() === 'yahayazaid2021@gmail.com';
-
-  const handleClaimSuperAdmin = () => {
-    if (!currentUser) return;
-    db.promoteToAdmin(currentUser.id);
-    refreshUserData();
-    navigate('/dashboard/admin');
-  };
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   const otherNavLinks = [
     { label: 'Explore Events', path: '/explore' },
@@ -70,22 +63,32 @@ export const Navbar: React.FC = () => {
             <span>Campus Event Management & Smart Notification Platform</span>
           </div>
 
-          {/* User Account Elevation Indicator - Strictly restricted to yahayazaid2021@gmail.com */}
-          {currentUser && (
+          {/* User Account / Role Indicator */}
+          {currentUser ? (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-slate-200 text-[11px] hidden sm:inline">
                 Signed in as <strong className="text-white">{currentUser.name}</strong> ({currentUser.role})
               </span>
-              {isSuperAdminEmail && currentUser.role !== 'ADMIN' && (
-                <button
-                  onClick={handleClaimSuperAdmin}
-                  className="px-2.5 py-0.5 text-[10px] font-bold rounded-md bg-amber-400 text-navy-dark hover:bg-amber-300 transition-all flex items-center gap-1 shadow-xs"
-                  title="Claim Super Administrator Privileges"
+              {isAdmin && (
+                <Link
+                  to="/dashboard/admin"
+                  className="px-2.5 py-0.5 text-[10px] font-bold rounded-md bg-purple-500 text-white hover:bg-purple-600 transition-all flex items-center gap-1 shadow-xs"
                 >
-                  <ShieldAlert className="w-3 h-3" />
-                  <span>Claim Super Admin</span>
-                </button>
+                  <Shield className="w-3 h-3" />
+                  <span>Admin Console</span>
+                </Link>
               )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 text-[11px] text-slate-200">
+              <Link to="/auth/login" className="hover:text-white transition-colors">Sign In</Link>
+              <span>&bull;</span>
+              <Link to="/auth/register" className="hover:text-white transition-colors">Register</Link>
+              <span>&bull;</span>
+              <Link to="/auth/admin-login" className="text-turquoise hover:underline flex items-center gap-1 font-semibold">
+                <Shield className="w-3 h-3" />
+                <span>Admin Login</span>
+              </Link>
             </div>
           )}
         </div>
@@ -167,7 +170,7 @@ export const Navbar: React.FC = () => {
                                 Main Campus (Keffi)
                               </p>
                               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                Senate Chamber, ICT Complex & Convocation
+                                Senate Chamber, Innovation Complex & Convocation
                               </p>
                             </div>
                           </Link>
@@ -436,20 +439,6 @@ export const Navbar: React.FC = () => {
                           <UserIcon className="w-4 h-4 text-slate-400" />
                           <span>Profile & Notification Prefs</span>
                         </Link>
-
-                        {/* Admin elevation action strictly for designated super admin */}
-                        {isSuperAdminEmail && currentUser.role !== 'ADMIN' && (
-                          <button
-                            onClick={() => {
-                              setProfileDropdownOpen(false);
-                              handleClaimSuperAdmin();
-                            }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                          >
-                            <Shield className="w-4 h-4 text-amber-500" />
-                            <span>Claim Super Admin</span>
-                          </button>
-                        )}
                       </div>
 
                       <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
@@ -657,17 +646,6 @@ export const Navbar: React.FC = () => {
               >
                 Notification Preferences
               </Link>
-              {isSuperAdminEmail && currentUser.role !== 'ADMIN' && (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    handleClaimSuperAdmin();
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50"
-                >
-                  Claim Super Admin
-                </button>
-              )}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);

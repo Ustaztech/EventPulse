@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
+import { api } from '../lib/api';
 import { emailService, EmailProviderConfig, DispatchLogItem } from '../lib/emailService';
 import { canManageMailingSettings } from '../lib/rbac';
 
@@ -75,7 +76,29 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
     setTimeout(() => setToastMessage(null), 3800);
   };
 
-  const refreshLogs = () => {
+  const refreshLogs = async () => {
+    try {
+      const res = await api.getAdminOutbox();
+      if (res?.outbox && res.outbox.length > 0) {
+        const mapped: DispatchLogItem[] = res.outbox.map((o: any) => ({
+          id: o.id,
+          recipientEmail: o.recipient_email,
+          recipientName: o.recipient_name,
+          subject: o.subject,
+          bodyHtml: o.body_html,
+          bodyText: o.body_text,
+          category: (o.notification_type?.toLowerCase() || 'custom') as any,
+          provider: (o.provider || 'RESEND') as any,
+          status: o.status === 'SENT' || o.status === 'DELIVERED' ? 'DELIVERED' : o.status === 'QUEUED' || o.status === 'PROCESSING' ? 'QUEUED' : 'FAILED',
+          errorMessage: o.error_message,
+          timestamp: o.created_at,
+        }));
+        setLogs(mapped);
+        return;
+      }
+    } catch {
+      // Fallback to local logs
+    }
     setLogs([...emailService.getLogs()]);
   };
 
@@ -1004,176 +1027,48 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
             <div className="border border-slate-200 dark:border-navy-light/60 rounded-3xl p-6 sm:p-8 space-y-6 bg-slate-50/50 dark:bg-[#0B132B]/60">
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Key className="w-5 h-5 text-royal" />
-                  <span>Configure Resend / MailerLite Provider</span>
+                  <ShieldCheck className="w-5 h-5 text-teal" />
+                  <span>Server-Side Email Notification Engine</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Connect your real API key to dispatch transactional emails to platform users via Resend or MailerLite.
+                  All transactional emails, scheduled reminders (24h & 1h), and emergency bulletins are executed server-side with zero exposure of API credentials to browser storage.
                 </p>
               </div>
 
-              {!canManageMailingSettings(currentUser) ? (
-                <div className="p-6 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-xs space-y-4">
-                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold">
-                    <Lock className="w-4 h-4 text-amber-600" />
-                    <span>Administrator Managed Configuration</span>
-                  </div>
-                  <p className="text-amber-700 dark:text-amber-300 leading-relaxed">
-                    Global mailing provider tokens and API credentials are restricted to Platform Administrators.
-                    Your broadcasts and automated event notices are routed automatically through the active verified provider.
-                  </p>
-                  <div className="p-3.5 bg-white dark:bg-[#0B132B] rounded-xl border border-amber-200 dark:border-amber-800/40 space-y-1.5 font-mono text-[11px]">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Active Provider:</span>
-                      <strong className="text-royal dark:text-turquoise">{config.provider.toUpperCase()}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Sender Identity:</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">{config.senderName} &lt;{config.senderEmail}&gt;</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Connection Status:</span>
-                      <span className="text-emerald-600 font-bold">Verified & Active</span>
-                    </div>
-                  </div>
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-navy-light/60 text-xs space-y-4 shadow-xs">
+                <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300 font-bold">
+                  <Zap className="w-4 h-4 text-teal" />
+                  <span>Production Transactional Dispatch Architecture</span>
                 </div>
-              ) : (
-              <form onSubmit={handleSaveConfig} className="space-y-4 text-xs">
-                {/* Provider Selector */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-200">Select Mailing Platform</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setConfig(prev => ({ ...prev, provider: 'resend' }))}
-                      className={`p-3.5 rounded-2xl border text-left font-bold transition-all ${
-                        config.provider === 'resend'
-                          ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise ring-2 ring-royal/20'
-                          : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="text-sm font-black">Resend (Recommended)</div>
-                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">resend.com &bull; 3,000 free emails/mo</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setConfig(prev => ({ ...prev, provider: 'mailerlite' }))}
-                      className={`p-3.5 rounded-2xl border text-left font-bold transition-all ${
-                        config.provider === 'mailerlite'
-                          ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise ring-2 ring-royal/20'
-                          : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="text-sm font-black">MailerLite</div>
-                      <div className="text-[10px] text-slate-400 font-normal mt-0.5">mailerlite.com &bull; campaign tokens</div>
-                    </button>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                  In compliance with application security standards, API credentials (<code className="font-mono font-bold text-slate-800 dark:text-slate-100">RESEND_API_KEY</code>) are configured strictly via server environment variables. The server daemon runs background jobs every 30 seconds to deliver scheduled reminders even when all users have closed their browsers.
+                </p>
+                <div className="p-4 bg-slate-50 dark:bg-navy-dark rounded-xl border border-slate-200 dark:border-navy-light/40 space-y-2 font-mono text-[11px]">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
+                    <span className="text-slate-400">Mailer Engine:</span>
+                    <strong className="text-royal dark:text-turquoise">Server Daemon / Resend API v2</strong>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
+                    <span className="text-slate-400">Environment Secret:</span>
+                    <span className="text-emerald-600 font-bold">RESEND_API_KEY (Server Protected)</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
+                    <span className="text-slate-400">Default Sender Identity:</span>
+                    <span className="text-slate-700 dark:text-slate-300">EventPulse Notifications &lt;onboarding@resend.dev&gt;</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-400">Background Reminder Scheduler:</span>
+                    <span className="text-emerald-600 font-bold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Active (Runs Every 30s)
+                    </span>
                   </div>
                 </div>
 
-                {/* Resend API Key Input */}
-                {config.provider === 'resend' && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="font-bold text-slate-700 dark:text-slate-200">Resend API Key</label>
-                      <a
-                        href="https://resend.com/api-keys"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-royal dark:text-turquoise font-bold hover:underline flex items-center gap-1"
-                      >
-                        <span>Get Free Key (resend.com)</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <div className="relative">
-                      <input
-                        type={showApiKey ? 'text' : 'password'}
-                        value={config.resendApiKey}
-                        onChange={(e) => setConfig(prev => ({ ...prev, resendApiKey: e.target.value }))}
-                        placeholder="re_123456789..."
-                        className="w-full p-3 pr-20 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-royal/30"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[11px] font-bold"
-                      >
-                        {showApiKey ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Your key is securely stored in local browser environment for direct client API dispatches.
-                    </p>
-                  </div>
-                )}
-
-                {/* MailerLite API Key Input */}
-                {config.provider === 'mailerlite' && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="font-bold text-slate-700 dark:text-slate-200">MailerLite API Token</label>
-                      <a
-                        href="https://mailerlite.com"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-royal dark:text-turquoise font-bold hover:underline flex items-center gap-1"
-                      >
-                        <span>Get MailerLite Token</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    </div>
-                    <input
-                      type={showApiKey ? 'text' : 'password'}
-                      value={config.mailerliteApiKey}
-                      onChange={(e) => setConfig(prev => ({ ...prev, mailerliteApiKey: e.target.value }))}
-                      placeholder="MailerLite API Token..."
-                      className="w-full p-3 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-royal/30"
-                    />
-                  </div>
-                )}
-
-                {/* Sender Settings */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-700 dark:text-slate-200">Sender Display Name</label>
-                    <input
-                      type="text"
-                      value={config.senderName}
-                      onChange={(e) => setConfig(prev => ({ ...prev, senderName: e.target.value }))}
-                      placeholder="e.g. EventPulse Notifications"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-700 dark:text-slate-200">Sender From Email</label>
-                    <input
-                      type="text"
-                      value={config.senderEmail}
-                      onChange={(e) => setConfig(prev => ({ ...prev, senderEmail: e.target.value }))}
-                      placeholder="e.g. onboarding@resend.dev or support@eventpulse.com.ng"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs font-mono"
-                      required
-                    />
-                  </div>
+                <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs">
+                  <strong>Verification Note:</strong> Transactional outbox records and statuses (<code className="font-mono font-bold">QUEUED</code>, <code className="font-mono font-bold">PROCESSING</code>, <code className="font-mono font-bold">SENT</code>, <code className="font-mono font-bold">DELIVERED</code>) can be inspected in real time under the <strong>Delivery Logs</strong> tab.
                 </div>
-
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-                  <strong>Tip for Resend testing:</strong> Use <code className="font-bold">onboarding@resend.dev</code> to send test emails right away to your verified Resend account email address without needing DNS domain verification.
-                </div>
-
-                <div className="pt-2 flex items-center justify-end gap-3">
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-xs shadow-md hover:bg-royal-hover transition-all"
-                  >
-                    Save Platform Configuration
-                  </button>
-                </div>
-              </form>
-              )}
+              </div>
             </div>
           </div>
         )}

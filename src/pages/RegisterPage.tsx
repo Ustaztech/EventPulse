@@ -34,7 +34,7 @@ export const RegisterPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -43,34 +43,33 @@ export const RegisterPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters with letters and numbers.');
       return;
     }
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const userRole = userType === 'STAFF' ? 'STAFF' : 'STUDENT';
-
-      const newUser = register({
+    try {
+      const res = await register({
         name: name.trim(),
         email: email.trim(),
-        passwordHash: password,
-        role: userRole,
+        password,
         userType,
         matricOrStaffId: matricOrStaffId.trim() || undefined,
         department: department.trim() || 'General Academic',
-        avatarUrl: `https://images.unsplash.com/photo-${userType === 'STUDENT' ? '1539571696357-5a69c17a67c6' : '1580489944761-15a19d654956'}?w=150`
       });
 
       setIsLoading(false);
-      if (redirectParam) {
-        navigate(decodeURIComponent(redirectParam));
+      if (!res.success) {
+        setError(res.error || 'Registration failed.');
       } else {
-        navigate(getDefaultDashboardRoute(newUser));
+        navigate(`/auth/verify?email=${encodeURIComponent(email.trim())}`);
       }
-    }, 350);
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || 'Network error occurred during registration.');
+    }
   };
 
   return (
@@ -206,7 +205,7 @@ export const RegisterPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters..."
+                  placeholder="At least 8 characters..."
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium placeholder-slate-400"
                   required
                 />
