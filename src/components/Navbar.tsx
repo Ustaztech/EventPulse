@@ -53,76 +53,37 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 dark:bg-navy/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors duration-200">
-      {/* Top Brand Announcement Bar */}
-      <div className="bg-gradient-to-r from-navy via-royal to-teal text-white py-1.5 px-4 text-xs font-medium">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="bg-turquoise text-navy-dark px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px]">
-              EventPulse
-            </span>
-            <span>Campus Event Management & Smart Notification Platform</span>
-          </div>
-
-          {/* User Account / Role Indicator */}
-          {currentUser ? (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-slate-200 text-[11px] hidden sm:inline">
-                Signed in as <strong className="text-white">{currentUser.name}</strong> ({currentUser.role})
-              </span>
-              {isAdmin && (
-                <Link
-                  to="/dashboard/admin"
-                  className="px-2.5 py-0.5 text-[10px] font-bold rounded-md bg-purple-500 text-white hover:bg-purple-600 transition-all flex items-center gap-1 shadow-xs"
-                >
-                  <Shield className="w-3 h-3" />
-                  <span>Admin Console</span>
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5 text-[11px] text-slate-200">
-              <Link to="/auth/login" className="hover:text-white transition-colors">Sign In</Link>
-              <span>&bull;</span>
-              <Link to="/auth/register" className="hover:text-white transition-colors">Register</Link>
-              <span>&bull;</span>
-              <Link to="/auth/admin-login" className="text-turquoise hover:underline flex items-center gap-1 font-semibold">
-                <Shield className="w-3 h-3" />
-                <span>Admin Login</span>
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Brand Logo */}
           <div className="flex-shrink-0">
-            <BrandLogo size="md" />
+            <BrandLogo size="md" to={currentUser ? getDashboardPath() : '/'} />
           </div>
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center space-x-1">
-            {/* Home with Dropdown */}
-            <div 
-              className="relative"
-              onMouseEnter={() => setHomeDropdownOpen(true)}
-              onMouseLeave={() => setHomeDropdownOpen(false)}
-            >
-              <div className="flex items-center">
-                <Link
-                  to="/"
-                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                    location.pathname === '/'
-                      ? 'text-royal dark:text-turquoise bg-blue-50/80 dark:bg-slate-800 font-bold'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <span>Home</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${homeDropdownOpen ? 'rotate-180 text-royal dark:text-turquoise' : 'text-slate-400'}`} />
-                </Link>
-              </div>
+            {!currentUser ? (
+              /* Home with Dropdown (Accessible only when logged out) */
+              <div 
+                className="relative"
+                onMouseEnter={() => setHomeDropdownOpen(true)}
+                onMouseLeave={() => setHomeDropdownOpen(false)}
+              >
+                <div className="flex items-center">
+                  <Link
+                    to="/"
+                    className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                      location.pathname === '/'
+                        ? 'text-royal dark:text-turquoise bg-blue-50/80 dark:bg-slate-800 font-bold'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <span>Home</span>
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${homeDropdownOpen ? 'rotate-180 text-royal dark:text-turquoise' : 'text-slate-400'}`} />
+                  </Link>
+                </div>
+
 
               {/* Home Mega Dropdown Menu */}
               {homeDropdownOpen && (
@@ -322,6 +283,19 @@ export const Navbar: React.FC = () => {
                 </div>
               )}
             </div>
+          ) : (
+            <Link
+              to={getDashboardPath()}
+              className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                location.pathname.startsWith('/dashboard')
+                  ? 'text-royal dark:text-turquoise bg-blue-50/80 dark:bg-slate-800 font-bold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Layers className="w-4 h-4 text-royal dark:text-turquoise" />
+              <span>Dashboard</span>
+            </Link>
+          )}
 
             {/* Other Navigation Links */}
             {otherNavLinks.map((link) => {
@@ -349,10 +323,22 @@ export const Navbar: React.FC = () => {
 
             {currentUser ? (
               <>
+                {/* Notification Bell (Image 4 style) */}
+                <Link
+                  to="/notifications"
+                  aria-label="View notifications"
+                  className="relative p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-navy" />
+                  )}
+                </Link>
+
                 {/* Direct Dashboard Link */}
                 <Link
                   to={getDashboardPath()}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-royal dark:text-turquoise bg-blue-50 dark:bg-royal/20 border border-blue-200 dark:border-royal/40 hover:bg-blue-100 dark:hover:bg-royal/30 transition-all shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-teal-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 hover:bg-blue-100 transition-all shadow-xs"
                 >
                   <Layers className="w-3.5 h-3.5" />
                   <span>Dashboard</span>
@@ -362,20 +348,17 @@ export const Navbar: React.FC = () => {
                 <div className="relative">
                   <button
                     onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                    className="flex items-center gap-2.5 p-1.5 pr-3 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50 dark:bg-navy-card transition-all"
+                    className="flex items-center gap-2.5 p-1 pr-3 rounded-full border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50 dark:bg-navy-card transition-all"
                   >
                     <img
                       src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
                       alt={currentUser.name}
-                      className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-slate-700 shadow-xs"
+                      className="w-7 h-7 rounded-full object-cover ring-2 ring-white dark:ring-slate-700 shadow-xs"
                     />
                     <div className="text-left hidden md:block">
                       <p className="text-xs font-bold text-slate-800 dark:text-white line-clamp-1 leading-tight">{currentUser.name}</p>
-                      <span className="inline-block text-[10px] font-semibold text-royal dark:text-turquoise uppercase tracking-wider">
-                        {currentUser.role}
-                      </span>
                     </div>
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
                   </button>
 
                   {/* Profile Menu Popover */}
@@ -385,7 +368,7 @@ export const Navbar: React.FC = () => {
                         <p className="text-xs text-slate-400 font-medium">Signed in as</p>
                         <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{currentUser.name}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser.email}</p>
-                        <span className="mt-1.5 inline-block text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-royal dark:text-turquoise">
+                        <span className="mt-1.5 inline-block text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-teal-300">
                           {currentUser.role} Account
                         </span>
                       </div>
@@ -396,15 +379,15 @@ export const Navbar: React.FC = () => {
                             <Link
                               to="/dashboard/admin"
                               onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-royal dark:text-turquoise bg-blue-50/50 dark:bg-slate-800/50 hover:bg-blue-50 dark:hover:bg-slate-800"
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-blue-600 dark:text-teal-300 bg-blue-50/50 dark:bg-slate-800/50 hover:bg-blue-50 dark:hover:bg-slate-800"
                             >
-                              <Shield className="w-4 h-4 text-royal dark:text-turquoise" />
+                              <Shield className="w-4 h-4 text-blue-600 dark:text-teal-300" />
                               <span>Admin Command Center</span>
                             </Link>
                             <Link
                               to="/dashboard/organizer"
                               onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-royal dark:hover:text-turquoise"
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
                             >
                               <PlusCircle className="w-4 h-4 text-teal" />
                               <span>Organizer Workspace</span>
@@ -412,7 +395,7 @@ export const Navbar: React.FC = () => {
                             <Link
                               to="/dashboard/student"
                               onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-royal dark:hover:text-turquoise"
+                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
                             >
                               <Ticket className="w-4 h-4 text-slate-400" />
                               <span>My Registrations & Tickets</span>
@@ -422,7 +405,7 @@ export const Navbar: React.FC = () => {
                           <Link
                             to={getDashboardPath()}
                             onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-royal dark:hover:text-turquoise"
+                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
                           >
                             <Layers className="w-4 h-4 text-slate-400" />
                             <span>
@@ -434,10 +417,10 @@ export const Navbar: React.FC = () => {
                         <Link
                           to="/profile"
                           onClick={() => setProfileDropdownOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-royal dark:hover:text-turquoise"
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
                         >
                           <UserIcon className="w-4 h-4 text-slate-400" />
-                          <span>Profile & Notification Prefs</span>
+                          <span>Profile & Settings</span>
                         </Link>
                       </div>
 
@@ -457,6 +440,20 @@ export const Navbar: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Visible Logout Button on the Right Side */}
+                <button
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    logout();
+                    navigate('/');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all shadow-xs"
+                  title="Sign out from your account"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Logout</span>
+                </button>
               </>
             ) : (
               <div className="flex items-center gap-2">
@@ -480,17 +477,16 @@ export const Navbar: React.FC = () => {
           <div className="flex sm:hidden items-center gap-2">
             <ThemeToggle />
             {currentUser && (
-              <Link
-                to="/notifications"
-                className="relative p-2 text-slate-600 dark:text-slate-300"
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                className="p-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                title="Logout"
               >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 bg-rose-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
+                <LogOut className="w-5 h-5" />
+              </button>
             )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -505,93 +501,104 @@ export const Navbar: React.FC = () => {
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
         <div className="sm:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-navy px-4 pt-3 pb-6 space-y-2">
-          {/* Mobile Home Expandable Item */}
-          <div className="rounded-xl overflow-hidden border border-slate-100 dark:border-navy-light/30">
-            <div className="flex items-center justify-between px-3 py-2 bg-slate-50/50 dark:bg-navy-light/20">
-              <Link
-                to="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-base font-bold text-slate-800 dark:text-white hover:text-royal dark:hover:text-turquoise"
-              >
-                Home
-              </Link>
-              <button
-                type="button"
-                onClick={() => setMobileHomeOpen(!mobileHomeOpen)}
-                className="p-1 rounded-md text-slate-500 hover:text-royal dark:hover:text-turquoise"
-                aria-label="Toggle Home menu options"
-              >
-                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${mobileHomeOpen ? 'rotate-180 text-royal dark:text-turquoise' : ''}`} />
-              </button>
-            </div>
+          {/* Mobile Home Expandable Item (Only for unauthenticated visitors) */}
+          {!currentUser ? (
+            <div className="rounded-xl overflow-hidden border border-slate-100 dark:border-navy-light/30">
+              <div className="flex items-center justify-between px-3 py-2 bg-slate-50/50 dark:bg-navy-light/20">
+                <Link
+                  to="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-base font-bold text-slate-800 dark:text-white hover:text-royal dark:hover:text-turquoise"
+                >
+                  Home
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMobileHomeOpen(!mobileHomeOpen)}
+                  className="p-1 rounded-md text-slate-500 hover:text-royal dark:hover:text-turquoise"
+                  aria-label="Toggle Home menu options"
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${mobileHomeOpen ? 'rotate-180 text-royal dark:text-turquoise' : ''}`} />
+                </button>
+              </div>
 
-            {mobileHomeOpen && (
-              <div className="p-3 bg-white dark:bg-[#111A33] border-t border-slate-100 dark:border-navy-light/40 space-y-2 text-xs">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block">
-                  Campus Locations & Tracks
-                </span>
-                <div className="grid grid-cols-2 gap-1.5 font-medium">
-                  <Link
-                    to="/explore?campus=Main Campus (Keffi)"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
-                  >
-                    Main Campus
-                  </Link>
-                  <Link
-                    to="/explore?campus=Pyanku Campus"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
-                  >
-                    Pyanku Campus
-                  </Link>
-                  <Link
-                    to="/explore?campus=Gudi Campus"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
-                  >
-                    Gudi Campus
-                  </Link>
-                  <Link
-                    to="/explore?campus=Lafia Campus"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
-                  >
-                    Lafia Campus
-                  </Link>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 dark:border-navy-light/40">
-                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block mb-1">
-                    Categories
+              {mobileHomeOpen && (
+                <div className="p-3 bg-white dark:bg-[#111A33] border-t border-slate-100 dark:border-navy-light/40 space-y-2 text-xs">
+                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block">
+                    Campus Locations & Tracks
                   </span>
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-2 gap-1.5 font-medium">
                     <Link
-                      to="/explore?category=academic-defense"
+                      to="/explore?campus=Main Campus (Keffi)"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block p-1 text-slate-700 dark:text-slate-300 hover:text-royal"
+                      className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
                     >
-                      Academic Defenses
+                      Main Campus
                     </Link>
                     <Link
-                      to="/explore?category=technology-innovation"
+                      to="/explore?campus=Pyanku Campus"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block p-1 text-slate-700 dark:text-slate-300 hover:text-royal"
+                      className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
                     >
-                      Tech Expos & AI Hackathons
+                      Pyanku Campus
                     </Link>
                     <Link
-                      to="/explore?category=sports-athletics"
+                      to="/explore?campus=Gudi Campus"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block p-1 text-slate-700 dark:text-slate-300 hover:text-royal"
+                      className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
                     >
-                      Sports & VC Championship
+                      Gudi Campus
+                    </Link>
+                    <Link
+                      to="/explore?campus=Lafia Campus"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-navy-light/30 text-slate-700 dark:text-slate-300"
+                    >
+                      Lafia Campus
                     </Link>
                   </div>
+
+                  <div className="pt-2 border-t border-slate-100 dark:border-navy-light/40">
+                    <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block mb-1">
+                      Categories
+                    </span>
+                    <div className="space-y-1">
+                      <Link
+                        to="/explore?category=academic-defense"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block p-1 text-slate-700 dark:text-slate-300 hover:text-royal"
+                      >
+                        Academic Defenses
+                      </Link>
+                      <Link
+                        to="/explore?category=technology-innovation"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block p-1 text-slate-700 dark:text-slate-300 hover:text-royal"
+                      >
+                        Tech Expos & AI Hackathons
+                      </Link>
+                      <Link
+                        to="/explore?category=sports-athletics"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block p-1 text-slate-700 dark:text-slate-300 hover:text-royal"
+                      >
+                        Sports & VC Championship
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              to={getDashboardPath()}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-blue-50 dark:bg-royal/20 text-royal dark:text-turquoise font-bold text-base"
+            >
+              <Layers className="w-5 h-5" />
+              <span>Dashboard</span>
+            </Link>
+          )}
 
           {/* Other Navigation Links */}
           {otherNavLinks.map((link) => (

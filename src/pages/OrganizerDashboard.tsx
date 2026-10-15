@@ -18,7 +18,13 @@ import {
   ChevronRight,
   Eye,
   X,
-  Mail
+  Mail,
+  Search,
+  Filter,
+  MoreHorizontal,
+  BarChart3,
+  TrendingUp,
+  Edit
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
@@ -315,129 +321,345 @@ export const OrganizerDashboard: React.FC = () => {
     },
   ];
 
-  const quickStats = [
-    { label: 'Events', value: myEvents.length },
-    { label: 'Registered', value: totalRegistrations },
-    { label: 'Pending', value: pendingApprovals },
-  ];
+  const [eventSearch, setEventSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING_APPROVAL' | 'DRAFT'>('ALL');
+  const [chartRange, setChartRange] = useState('30');
+
+  const filteredMyEvents = myEvents.filter((e) => {
+    if (eventSearch.trim() && !e.title.toLowerCase().includes(eventSearch.toLowerCase())) {
+      return false;
+    }
+    if (statusFilter !== 'ALL' && e.status !== statusFilter) {
+      return false;
+    }
+    return true;
+  });
+
+  const upcomingCount = myEvents.filter(e => new Date(e.startTime) > new Date()).length;
 
   return (
     <DashboardLayout
-      title={`Organiser: ${currentUser.name}`}
-      subtitle="Publish university events, track registrations, verify attendee passes, and broadcast live alerts."
+      title="Organiser workspace"
+      subtitle="Manage your events, track registrations and engage your campus community."
       badgeText="Organiser Workspace"
       badgeColor="teal"
       activeTab={activeTab}
       onTabChange={(id) => setActiveTab(id)}
       navItems={navItems}
-      quickStats={quickStats}
+      headerActions={
+        <button
+          onClick={() => setActiveTab('create')}
+          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>Create event</span>
+        </button>
+      }
     >
 
-      {/* Tab 1: Manage My Events */}
+      {/* Tab 1: Manage My Events / Overview (Image 2 style) */}
       {activeTab === 'events' && (
-        <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 dark:border-navy-light/40 flex items-center justify-between">
-            <h3 className="font-bold text-slate-900 dark:text-white text-lg">Created Events Directory</h3>
-            <button
-              onClick={() => setActiveTab('create')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal text-white text-xs font-bold hover:bg-teal-600 shadow-xs"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Create Event</span>
-            </button>
-          </div>
-
-          {formStatus && (
-            <div className={`mx-6 mt-4 p-4 rounded-2xl flex items-center justify-between text-xs font-bold ${
-              formStatus.type === 'success' 
-                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60' 
-                : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60'
-            }`}>
-              <span>{formStatus.message}</span>
-              <button type="button" onClick={() => setFormStatus(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                <X className="w-4 h-4" />
-              </button>
+        <div className="space-y-6">
+          
+          {/* 3 Modern Stat Cards matching Image 2 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {/* Card 1: Total events */}
+            <div className="bg-white dark:bg-[#111A33] rounded-2xl p-5 border border-slate-200/90 dark:border-navy-light/40 shadow-xs flex items-start justify-between">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total events</span>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white">{myEvents.length}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                    ↑ 33%
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block pt-1">Events you've created</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
             </div>
-          )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-navy-dark text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold border-b border-slate-200 dark:border-navy-light/40">
-                <tr>
-                  <th className="py-3 px-6">Event Title</th>
-                  <th className="py-3 px-6">Format & Venue</th>
-                  <th className="py-3 px-6">Schedule (WAT)</th>
-                  <th className="py-3 px-6">Seating & Regs</th>
-                  <th className="py-3 px-6">Status</th>
-                  <th className="py-3 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-navy-light/30">
-                {myEvents.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-slate-500">
-                      <Calendar className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                      <p className="font-bold text-slate-700 dark:text-slate-300">No events created yet</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Click "Create Event" to draft and publish your first campus event.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  myEvents.map((evt) => (
-                  <tr key={evt.id} className="hover:bg-slate-50/80 dark:hover:bg-navy-light/20 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="font-bold text-slate-900 dark:text-white text-sm max-w-xs truncate">{evt.title}</div>
-                      <span className="text-[10px] text-slate-400">{evt.categoryName}</span>
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                      <div className="font-semibold">{evt.format}</div>
-                      <span className="text-[11px] text-slate-400 truncate block max-w-[180px]">
-                        {evt.venueName || 'Online Platform'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                      <div>{new Date(evt.startTime).toLocaleDateString()}</div>
-                      <span className="text-[11px] text-slate-400">
-                        {new Date(evt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} WAT
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="font-bold text-slate-900 dark:text-white">{evt.registeredCount || 0}</span>
-                      <span className="text-slate-400"> / {evt.capacity || 'Open'}</span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                        evt.status === 'PUBLISHED'
-                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
-                          : evt.status === 'PENDING_APPROVAL'
-                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
-                          : evt.status === 'DRAFT'
-                          ? 'bg-slate-100 dark:bg-navy-light/40 text-slate-700 dark:text-slate-300'
-                          : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
-                      }`}>
-                        {evt.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right space-x-2">
-                      <button
-                        onClick={() => exportParticipantRoster(evt.id, evt.title)}
-                        className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-blue-50 dark:hover:bg-navy-light/30 transition-colors"
-                        title="Download CSV Participant Roster"
-                      >
-                        <FileSpreadsheet className="w-4 h-4" />
-                      </button>
-                      <Link
-                        to={`/events/${evt.slug}`}
-                        className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-blue-50 dark:hover:bg-navy-light/30 transition-colors inline-block"
-                        title="Preview Public Page"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                )))}
-              </tbody>
-            </table>
+            {/* Card 2: Registrations */}
+            <div className="bg-white dark:bg-[#111A33] rounded-2xl p-5 border border-slate-200/90 dark:border-navy-light/40 shadow-xs flex items-start justify-between">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Registrations</span>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white">{totalRegistrations}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                    ↑ 18%
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 block pt-1">Total event registrations</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* Card 3: Upcoming events */}
+            <div className="bg-white dark:bg-[#111A33] rounded-2xl p-5 border border-slate-200/90 dark:border-navy-light/40 shadow-xs flex items-start justify-between">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Upcoming events</span>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white">{upcomingCount}</span>
+                </div>
+                <span className="text-[11px] text-slate-400 block pt-1">Events in the next 30 days</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
           </div>
+
+          {/* Event Management Table Card matching Image 2 */}
+          <div className="bg-white dark:bg-[#111A33] rounded-2xl border border-slate-200/90 dark:border-navy-light/40 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 dark:border-navy-light/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">Event management</h3>
+                <p className="text-xs text-slate-400">View and manage all your events.</p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={eventSearch}
+                    onChange={(e) => setEventSearch(e.target.value)}
+                    placeholder="Search events..."
+                    className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 w-44"
+                  />
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  aria-label="Filter events by status"
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-700 dark:text-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+                >
+                  <option value="ALL">Filter: All Status</option>
+                  <option value="PUBLISHED">Published</option>
+                  <option value="PENDING_APPROVAL">Pending approval</option>
+                  <option value="DRAFT">Draft</option>
+                </select>
+              </div>
+            </div>
+
+            {formStatus && (
+              <div className={`mx-5 mt-4 p-3.5 rounded-xl flex items-center justify-between text-xs font-bold ${
+                formStatus.type === 'success' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/60' 
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60'
+              }`}>
+                <span>{formStatus.message}</span>
+                <button type="button" onClick={() => setFormStatus(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/70 dark:bg-[#0B132B] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold border-b border-slate-100 dark:border-navy-light/40">
+                  <tr>
+                    <th className="py-3 px-5">Event title</th>
+                    <th className="py-3 px-5">Date (WAT)</th>
+                    <th className="py-3 px-5">Status</th>
+                    <th className="py-3 px-5">Registrations</th>
+                    <th className="py-3 px-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-navy-light/30">
+                  {filteredMyEvents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400">
+                        <Calendar className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                        <p className="font-bold text-slate-700 dark:text-slate-300">No events found</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Click "Create event" to draft and publish your next campus event.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMyEvents.map((evt) => (
+                      <tr key={evt.id} className="hover:bg-slate-50/80 dark:hover:bg-navy-light/20 transition-colors">
+                        <td className="py-3.5 px-5">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={evt.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=150'}
+                              alt=""
+                              className="w-10 h-10 rounded-lg object-cover shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <span className="font-bold text-slate-900 dark:text-white text-xs block truncate max-w-xs">{evt.title}</span>
+                              <span className="text-[10px] text-slate-400">{evt.categoryName || 'General'}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-5 text-slate-600 dark:text-slate-300">
+                          <div className="font-semibold">
+                            {new Date(evt.startTime).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                          <span className="text-[11px] text-slate-400">
+                            {new Date(evt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(evt.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            evt.status === 'PUBLISHED'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                              : evt.status === 'PENDING_APPROVAL'
+                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              evt.status === 'PUBLISHED'
+                                ? 'bg-emerald-500'
+                                : evt.status === 'PENDING_APPROVAL'
+                                ? 'bg-amber-500'
+                                : 'bg-slate-400'
+                            }`} />
+                            {evt.status === 'PUBLISHED' ? 'Published' : evt.status === 'PENDING_APPROVAL' ? 'Pending approval' : 'Draft'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-semibold">
+                            <Users className="w-3.5 h-3.5 text-blue-600" />
+                            {evt.registeredCount || 0}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Link
+                              to={`/events/${evt.slug}`}
+                              className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-navy-light/60 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors"
+                            >
+                              View
+                            </Link>
+                            <button
+                              onClick={() => exportParticipantRoster(evt.id, evt.title)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                              title="Export roster"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bottom Dual Grid matching Image 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Registrations over time Bar Chart (7 cols) */}
+            <div className="lg:col-span-7 bg-white dark:bg-[#111A33] rounded-2xl p-5 border border-slate-200/90 dark:border-navy-light/40 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">Registrations over time</h4>
+                </div>
+                <select
+                  value={chartRange}
+                  onChange={(e) => setChartRange(e.target.value)}
+                  aria-label="Chart date range"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer"
+                >
+                  <option value="30">Last 30 days</option>
+                  <option value="14">Last 14 days</option>
+                  <option value="7">Last 7 days</option>
+                </select>
+              </div>
+
+              {/* Chart Visual matching Image 2 bars */}
+              <div className="pt-2">
+                <div className="h-44 flex items-end justify-between gap-1 sm:gap-2 px-2 border-b border-slate-100 dark:border-navy-light/40 pb-2">
+                  {[5, 8, 12, 10, 18, 14, 22, 19, 28, 35, 42, 38, 20, 24, 30, 36, 18, 22, 26].map((val, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center group relative">
+                      <div
+                        className="w-full bg-blue-600 hover:bg-blue-700 rounded-t-xs transition-all duration-300"
+                        style={{ height: `${(val / 42) * 100}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400 pt-2 px-1">
+                  <span>1 Sep</span>
+                  <span>5 Sep</span>
+                  <span>9 Sep</span>
+                  <span>13 Sep</span>
+                  <span>17 Sep</span>
+                  <span>21 Sep</span>
+                  <span>25 Sep</span>
+                  <span>29 Sep</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity Card (5 cols) matching Image 2 */}
+            <div className="lg:col-span-5 bg-white dark:bg-[#111A33] rounded-2xl p-5 border border-slate-200/90 dark:border-navy-light/40 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">Recent activity</h4>
+                <Link to="/notifications" className="text-xs font-bold text-blue-600 dark:text-teal-300 hover:underline">
+                  View all
+                </Link>
+              </div>
+
+              <div className="space-y-3.5 pt-1">
+                <div className="flex items-start gap-3 text-xs">
+                  <div className="w-7 h-7 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <Users className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-slate-800 dark:text-slate-200 font-medium leading-snug">
+                      <strong>Aisha Mohammed</strong> registered for campus event
+                    </p>
+                    <span className="text-[10px] text-slate-400">2 hours ago</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 text-xs">
+                  <div className="w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-slate-800 dark:text-slate-200 font-medium leading-snug">
+                      Your event is currently pending administrator approval
+                    </p>
+                    <span className="text-[10px] text-slate-400">5 hours ago</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 text-xs">
+                  <div className="w-7 h-7 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-slate-800 dark:text-slate-200 font-medium leading-snug">
+                      <strong>12 new registrations</strong> recorded today
+                    </p>
+                    <span className="text-[10px] text-slate-400">1 day ago</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 text-xs">
+                  <div className="w-7 h-7 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-slate-800 dark:text-slate-200 font-medium leading-snug">
+                      Your event <strong>Campus Workshop</strong> was published
+                    </p>
+                    <span className="text-[10px] text-slate-400">2 days ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
         </div>
       )}
 

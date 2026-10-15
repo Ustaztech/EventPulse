@@ -75,8 +75,8 @@ export const AdminDashboard: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <h2 className="text-2xl font-black text-slate-800 dark:text-white">Administrator Access Required</h2>
         <p className="text-slate-500 text-sm">You must be logged into an authenticated administrator account to access this console.</p>
-        <Link to="/auth/admin-login" className="px-6 py-2.5 rounded-xl bg-purple-600 text-white font-bold text-sm inline-block shadow-md">
-          Authenticate as Administrator
+        <Link to="/auth/login" className="px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-sm inline-block shadow-md">
+          Sign In to Your Account
         </Link>
       </div>
     );

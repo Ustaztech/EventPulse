@@ -101,8 +101,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         return sendJson(res, 409, { error: 'An account with this email address already exists.' });
       }
 
-      // Public registration strictly assigns STUDENT or STAFF only
-      const assignedRole = userType === 'STAFF' ? 'STAFF' : 'STUDENT';
+      // Check for Super Admin
+      const isSuperAdmin = email.trim().toLowerCase() === 'yahayazaid2021@gmail.com';
+      const assignedRole = isSuperAdmin ? 'ADMIN' : (userType === 'STAFF' ? 'STAFF' : 'STUDENT');
       const passwordHash = hashPassword(password);
       const verificationCode = generateVerificationCode();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -117,31 +118,34 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         faculty: faculty?.trim(),
         department: department?.trim(),
         phone: phone?.trim(),
-        verificationToken: verificationCode,
-        verificationTokenExpiresAt: expiresAt,
+        verificationToken: isSuperAdmin ? undefined : verificationCode,
+        verificationTokenExpiresAt: isSuperAdmin ? undefined : expiresAt,
+        emailVerified: isSuperAdmin ? 1 : 0,
       });
 
-      // Queue email verification job
-      serverDb.enqueueOutboxJob({
-        recipientEmail: newUser.email,
-        recipientName: newUser.name,
-        subject: 'Verify Your EventPulse Campus Account',
-        bodyHtml: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
-            <h2 style="color: #1E40AF; margin-top: 0;">Welcome to EventPulse!</h2>
-            <p>Dear ${newUser.name},</p>
-            <p>Thank you for registering. Please enter the following 6-digit confirmation code to verify your campus email:</p>
-            <div style="background: #eff6ff; border: 2px dashed #3b82f6; border-radius: 8px; padding: 16px; text-align: center; margin: 20px 0;">
-              <span style="font-size: 28px; font-weight: 800; letter-spacing: 6px; color: #1E40AF; font-family: monospace;">${verificationCode}</span>
+      if (!isSuperAdmin) {
+        // Queue email verification job
+        serverDb.enqueueOutboxJob({
+          recipientEmail: newUser.email,
+          recipientName: newUser.name,
+          subject: 'Verify Your EventPulse Campus Account',
+          bodyHtml: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+              <h2 style="color: #1E40AF; margin-top: 0;">Welcome to EventPulse!</h2>
+              <p>Dear ${newUser.name},</p>
+              <p>Thank you for registering. Please enter the following 6-digit confirmation code to verify your campus email:</p>
+              <div style="background: #eff6ff; border: 2px dashed #3b82f6; border-radius: 8px; padding: 16px; text-align: center; margin: 20px 0;">
+                <span style="font-size: 28px; font-weight: 800; letter-spacing: 6px; color: #1E40AF; font-family: monospace;">${verificationCode}</span>
+              </div>
+              <p style="font-size: 13px; color: #64748b;">This code expires in 24 hours.</p>
             </div>
-            <p style="font-size: 13px; color: #64748b;">This code expires in 24 hours.</p>
-          </div>
-        `,
-        bodyText: `Your EventPulse verification code is: ${verificationCode}. Enter this code to verify your account.`,
-        notificationType: 'EMAIL_VERIFICATION',
-        userId: newUser.id,
-        idempotencyKey: `verify-${newUser.id}-${verificationCode}`,
-      });
+          `,
+          bodyText: `Your EventPulse verification code is: ${verificationCode}. Enter this code to verify your account.`,
+          notificationType: 'EMAIL_VERIFICATION',
+          userId: newUser.id,
+          idempotencyKey: `verify-${newUser.id}-${verificationCode}`,
+        });
+      }
 
       serverDb.logAudit(newUser.id, newUser.name, 'USER_REGISTER', 'User', newUser.id, `Registered as ${assignedRole}`, clientIp);
 
@@ -164,11 +168,11 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
           faculty: newUser.faculty,
           department: newUser.department,
           phone: newUser.phone,
-          emailVerified: false,
+          emailVerified: isSuperAdmin ? true : false,
           createdAt: newUser.created_at,
         },
         token: sessionToken,
-        message: 'Account created. Verification code dispatched to your email.',
+        message: isSuperAdmin ? 'Administrator account created successfully.' : 'Account created. Verification code dispatched to your email.',
       });
     }
 
@@ -191,6 +195,18 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       // Account enumeration protection: identical error response
       if (!user || !verifyPassword(password, user.password_hash)) {
         return sendJson(res, 401, { error: 'Invalid email address or password. Please try again.' });
+      }
+
+      const isSuperAdmin = user.email.toLowerCase() === 'yahayazaid2021@gmail.com';
+      if (isSuperAdmin) {
+        if (user.role !== 'ADMIN') {
+          serverDb.updateUserRole(user.id, 'ADMIN');
+          user.role = 'ADMIN';
+        }
+        if (user.email_verified !== 1) {
+          serverDb.verifyUserEmail(user.id);
+          user.email_verified = 1;
+        }
       }
 
       resetRateLimit(rateKey);

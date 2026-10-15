@@ -13,7 +13,6 @@ import { HomePage } from './pages/HomePage';
 import { ExplorePage } from './pages/ExplorePage';
 import { EventDetailsPage } from './pages/EventDetailsPage';
 import { LoginPage } from './pages/LoginPage';
-import { AdminLoginPage } from './pages/AdminLoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage, ResetPasswordPage } from './pages/AuthAuxPages';
 import { StudentDashboard } from './pages/StudentDashboard';
@@ -25,6 +24,27 @@ import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { PrivacyPage, TermsPage, UnsubscribePage } from './pages/LegalPages';
 import { NotFoundPage } from './pages/NotFoundPage';
+
+import { useAuth } from './lib/AuthContext';
+import { getDefaultDashboardRoute } from './lib/rbac';
+
+// Redirect authenticated users to their dashboard (users can only access homepage when logged out)
+function HomePageOrDashboard() {
+  const { currentUser } = useAuth();
+  if (currentUser) {
+    return <Navigate to={getDefaultDashboardRoute(currentUser)} replace />;
+  }
+  return <HomePage />;
+}
+
+// Redirect authenticated users away from auth pages to their dashboard
+function AuthPageOnly({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useAuth();
+  if (currentUser) {
+    return <Navigate to={getDefaultDashboardRoute(currentUser)} replace />;
+  }
+  return <>{children}</>;
+}
 
 export function App() {
   const [initialLoading, setInitialLoading] = useState(true);
@@ -44,12 +64,14 @@ export function App() {
             <Navbar />
             <main className="flex-1">
               <Routes>
-                <Route path="/" element={<HomePage />} />
+                {/* Homepage is accessible only when logged out; authenticated users are routed to their dashboard */}
+                <Route path="/" element={<HomePageOrDashboard />} />
                 <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/events/:slug" element={<EventDetailsPage />} />
-                <Route path="/auth/login" element={<LoginPage />} />
-                <Route path="/auth/admin-login" element={<AdminLoginPage />} />
-                <Route path="/auth/register" element={<RegisterPage />} />
+                <Route path="/auth/login" element={<AuthPageOnly><LoginPage /></AuthPageOnly>} />
+                {/* Unified login: /auth/admin-login redirects to /auth/login */}
+                <Route path="/auth/admin-login" element={<Navigate to="/auth/login" replace />} />
+                <Route path="/auth/register" element={<AuthPageOnly><RegisterPage /></AuthPageOnly>} />
                 <Route path="/auth/verify" element={<VerifyEmailPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
                 

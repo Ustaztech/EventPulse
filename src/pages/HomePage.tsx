@@ -20,11 +20,18 @@ import { db } from '../lib/storage';
 import { EventCard } from '../components/EventCard';
 import { CATEGORY_DEFINITIONS, NSUK_CAMPUSES } from '../lib/nsuk-data';
 import { useAuth } from '../lib/AuthContext';
+import { getDefaultDashboardRoute } from '../lib/rbac';
 
 export const HomePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (currentUser) {
+      navigate(getDefaultDashboardRoute(currentUser), { replace: true });
+    }
+  }, [currentUser, navigate]);
 
   const allEvents = db.getEvents().filter(e => e.status === 'PUBLISHED');
   

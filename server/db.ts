@@ -554,7 +554,7 @@ class EventPulseDatabase {
     name: string;
     email: string;
     passwordHash: string;
-    role: 'STUDENT' | 'STAFF';
+    role: 'STUDENT' | 'STAFF' | 'ORGANIZER' | 'ADMIN';
     userType: 'STUDENT' | 'STAFF' | 'ALUMNI' | 'EXTERNAL';
     matricOrStaffId?: string;
     faculty?: string;
@@ -563,13 +563,14 @@ class EventPulseDatabase {
     avatarUrl?: string;
     verificationToken?: string;
     verificationTokenExpiresAt?: string;
+    emailVerified?: number;
   }): UserRow {
     const id = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const now = new Date().toISOString();
 
     this.db.prepare(`
       INSERT INTO users (id, name, email, password_hash, role, user_type, matric_or_staff_id, faculty, department, phone, avatar_url, email_verified, verification_token, verification_token_expires_at, mfa_enabled, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 0, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     `).run(
       id,
       userData.name,
@@ -582,6 +583,7 @@ class EventPulseDatabase {
       userData.department || null,
       userData.phone || null,
       userData.avatarUrl || null,
+      userData.emailVerified ?? 0,
       userData.verificationToken || null,
       userData.verificationTokenExpiresAt || null,
       now,
