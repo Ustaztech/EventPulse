@@ -414,21 +414,21 @@ export const OrganizerDashboard: React.FC = () => {
 
           {/* Event Management Table Card matching Image 2 */}
           <div className="bg-white dark:bg-[#111A33] rounded-2xl border border-slate-200/90 dark:border-navy-light/40 shadow-xs overflow-hidden">
-            <div className="p-5 border-b border-slate-100 dark:border-navy-light/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-navy-light/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">Event management</h3>
                 <p className="text-xs text-slate-400">View and manage all your events.</p>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-44">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={eventSearch}
                     onChange={(e) => setEventSearch(e.target.value)}
                     placeholder="Search events..."
-                    className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 w-44"
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
 
@@ -665,7 +665,7 @@ export const OrganizerDashboard: React.FC = () => {
 
       {/* Tab 2: Create New Event Wizard */}
       {activeTab === 'create' && (
-        <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 p-6 sm:p-8 shadow-sm space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-navy-light/40 p-4 sm:p-8 shadow-sm space-y-6 max-w-4xl mx-auto">
           <div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white">Create Campus Event</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">

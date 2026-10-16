@@ -99,18 +99,18 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-70px)] bg-slate-50 dark:bg-navy-dark transition-colors flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-5xl bg-white dark:bg-[#111A33] rounded-3xl shadow-2xl border border-slate-200/80 dark:border-navy-light/40 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px]">
+    <div className="min-h-[calc(100vh-70px)] bg-slate-50 dark:bg-navy-dark transition-colors flex items-center justify-center p-3 sm:p-6 lg:p-8">
+      <div className="w-full max-w-5xl bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl shadow-xl sm:shadow-2xl border border-slate-200/80 dark:border-navy-light/40 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[680px]">
         
-        {/* Left Hero Column matching Image 5 */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-950 text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden">
+        {/* Left Hero Column */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-950 text-white p-5 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden">
           <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-teal-400/20 blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-blue-400/20 blur-3xl pointer-events-none" />
 
           {/* Top Logo & Tag */}
-          <div className="relative z-10 space-y-3">
+          <div className="relative z-10 space-y-2 sm:space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-2 flex items-center justify-center">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-2 flex items-center justify-center shrink-0">
                 <svg viewBox="0 0 100 100" fill="none" className="w-full h-full">
                   <rect x="25" y="8" width="9" height="18" rx="4.5" fill="#FFFFFF" />
                   <rect x="66" y="8" width="9" height="18" rx="4.5" fill="#FFFFFF" />
@@ -119,23 +119,23 @@ export const RegisterPage: React.FC = () => {
                 </svg>
               </div>
               <div>
-                <span className="text-xl font-black tracking-tight text-white">Event<span className="text-teal-300">Pulse</span></span>
+                <span className="text-lg sm:text-xl font-black tracking-tight text-white">Event<span className="text-teal-300">Pulse</span></span>
                 <span className="block text-[9px] font-bold uppercase tracking-widest text-teal-200/80">Campus Events</span>
               </div>
             </div>
 
-            <div className="pt-6">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+            <div className="pt-2 sm:pt-6">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white leading-tight">
                 Join your campus community
               </h1>
-              <p className="mt-2 text-xs sm:text-sm text-blue-100 font-normal leading-relaxed">
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-blue-100 font-normal leading-relaxed">
                 Discover events, meet people, and make the most of your campus experience with EventPulse.
               </p>
             </div>
           </div>
 
-          {/* Feature Highlights */}
-          <div className="relative z-10 my-8 space-y-4">
+          {/* Feature Highlights - visible on desktop/large screens */}
+          <div className="relative z-10 my-6 lg:my-8 space-y-3.5 hidden lg:block">
             <div className="flex items-start gap-3.5">
               <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/20">
                 <Calendar className="w-4 h-4 text-teal-300" />
@@ -167,8 +167,8 @@ export const RegisterPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Campus photo card at bottom */}
-          <div className="relative z-10 rounded-2xl overflow-hidden border border-white/20 shadow-lg bg-black/20">
+          {/* Campus photo card at bottom - visible on desktop */}
+          <div className="relative z-10 rounded-2xl overflow-hidden border border-white/20 shadow-lg bg-black/20 hidden lg:block">
             <div className="relative h-24 w-full">
               <img 
                 src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=600" 
@@ -185,13 +185,13 @@ export const RegisterPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Form Column matching Image 5 */}
-        <div className="lg:col-span-7 p-6 sm:p-10 flex flex-col justify-center">
-          <div className="max-w-md w-full mx-auto space-y-5">
+        {/* Right Form Column */}
+        <div className="lg:col-span-7 p-5 sm:p-8 lg:p-10 flex flex-col justify-center">
+          <div className="max-w-md w-full mx-auto space-y-4 sm:space-y-5">
             
             {/* Header */}
             <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 Create your account
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -208,14 +208,14 @@ export const RegisterPage: React.FC = () => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
               
-              {/* Account Type Selector matching Image 5 cards */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Account Type Selector cards */}
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setUserType('STUDENT')}
-                  className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 relative ${
+                  className={`p-3 rounded-2xl border text-left transition-all flex items-center sm:items-start gap-2.5 sm:gap-3 relative min-h-[56px] ${
                     userType === 'STUDENT'
                       ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-600 shadow-xs'
                       : 'border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] hover:border-slate-300'
@@ -231,7 +231,7 @@ export const RegisterPage: React.FC = () => {
                     <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate">I'm a student</span>
                   </div>
                   {userType === 'STUDENT' && (
-                    <div className="w-3.5 h-3.5 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+                    <div className="w-3.5 h-3.5 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 sm:mt-0.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-white" />
                     </div>
                   )}
@@ -240,7 +240,7 @@ export const RegisterPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setUserType('STAFF')}
-                  className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 relative ${
+                  className={`p-3 rounded-2xl border text-left transition-all flex items-center sm:items-start gap-2.5 sm:gap-3 relative min-h-[56px] ${
                     userType === 'STAFF'
                       ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 ring-1 ring-blue-600 shadow-xs'
                       : 'border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] hover:border-slate-300'
@@ -253,10 +253,10 @@ export const RegisterPage: React.FC = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block text-xs font-bold text-slate-900 dark:text-white">Staff</span>
-                    <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate">I'm a staff member</span>
+                    <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate">I'm staff member</span>
                   </div>
                   {userType === 'STAFF' && (
-                    <div className="w-3.5 h-3.5 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+                    <div className="w-3.5 h-3.5 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 sm:mt-0.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-white" />
                     </div>
                   )}
@@ -269,13 +269,13 @@ export const RegisterPage: React.FC = () => {
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
                     required
                   />
                 </div>
@@ -287,13 +287,13 @@ export const RegisterPage: React.FC = () => {
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="yourname@campus.edu or email"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
                     required
                   />
                 </div>
@@ -309,12 +309,15 @@ export const RegisterPage: React.FC = () => {
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium transition-all appearance-none cursor-pointer"
+                    className="w-full pl-10 pr-8 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium transition-all appearance-none cursor-pointer"
                   >
                     {departmentsList.map(dep => (
                       <option key={dep} value={dep}>{dep}</option>
                     ))}
                   </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
+                    ▼
+                  </div>
                 </div>
               </div>
 
@@ -325,21 +328,22 @@ export const RegisterPage: React.FC = () => {
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Create password"
-                      className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
+                      className="w-full pl-9 pr-10 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none"
                     >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -349,21 +353,22 @@ export const RegisterPage: React.FC = () => {
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat password"
-                      className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
+                      className="w-full pl-9 pr-10 py-2.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium placeholder-slate-400 transition-all"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none"
                     >
-                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
@@ -371,7 +376,7 @@ export const RegisterPage: React.FC = () => {
 
               {/* Terms Checkbox */}
               <div className="pt-1">
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400 select-none">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400 select-none py-1">
                   <input
                     type="checkbox"
                     checked={agreeTerms}
@@ -388,7 +393,7 @@ export const RegisterPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
+                className="w-full min-h-[46px] py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 active:scale-[0.99]"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
@@ -407,7 +412,7 @@ export const RegisterPage: React.FC = () => {
             {/* Bottom Login Link */}
             <div className="pt-1 text-center text-xs text-slate-600 dark:text-slate-400">
               Already have an account?{' '}
-              <Link to="/auth/login" className="font-bold text-blue-600 dark:text-teal-300 hover:underline">
+              <Link to="/auth/login" className="font-bold text-blue-600 dark:text-teal-300 hover:underline py-1">
                 Sign in
               </Link>
             </div>

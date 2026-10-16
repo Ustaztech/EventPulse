@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Mail, Lock, ArrowRight, AlertCircle, KeyRound, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Mail, Lock, ArrowRight, AlertCircle, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
@@ -155,6 +155,8 @@ export const ResetPasswordPage: React.FC = () => {
   // Step 2: New password state
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [resetCompleted, setResetCompleted] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -212,11 +214,11 @@ export const ResetPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full space-y-6">
+    <div className="min-h-[80vh] flex items-center justify-center p-3 sm:p-6 lg:p-8">
+      <div className="max-w-md w-full space-y-5 sm:space-y-6">
         <div className="text-center space-y-2">
           <BrandLogo size="lg" className="justify-center" />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-4">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-4">
             {token ? 'Create New Password' : 'Reset Your Password'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -227,7 +229,7 @@ export const ResetPasswordPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-[#111A33] p-8 rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-xl space-y-5">
+        <div className="bg-white dark:bg-[#111A33] p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-xl space-y-5">
           {error && (
             <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -256,40 +258,56 @@ export const ResetPasswordPage: React.FC = () => {
           ) : token ? (
             /* STEP 2 FORM: User clicked link with ?token=... */
             <form onSubmit={handleResetSubmit} className="space-y-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">New Password</label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="At least 8 characters..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30"
+                    className="w-full pl-10 pr-11 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30 transition-all font-medium"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-0 top-0 bottom-0 px-3.5 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Confirm New Password</label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat new password..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30"
+                    className="w-full pl-10 pr-11 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30 transition-all font-medium"
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-0 top-0 bottom-0 px-3.5 flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 rounded-xl bg-royal hover:bg-royal-hover text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full min-h-[46px] py-3.5 rounded-xl bg-royal hover:bg-royal-hover text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 active:scale-[0.99]"
               >
                 {isLoading ? <span>Updating Password...</span> : <span>Save New Password</span>}
               </button>
@@ -311,16 +329,16 @@ export const ResetPasswordPage: React.FC = () => {
           ) : (
             /* STEP 1 FORM: User requests reset link */
             <form onSubmit={handleRequestSubmit} className="space-y-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Registered Email Address</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="user@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30"
+                    className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium placeholder-slate-400 transition-all"
                     required
                   />
                 </div>
@@ -329,7 +347,7 @@ export const ResetPasswordPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 rounded-xl bg-royal hover:bg-royal-hover text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full min-h-[46px] py-3.5 rounded-xl bg-royal hover:bg-royal-hover text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 active:scale-[0.99]"
               >
                 {isLoading ? (
                   <span>Dispatching Link...</span>
@@ -345,7 +363,7 @@ export const ResetPasswordPage: React.FC = () => {
 
           <div className="text-center pt-2 text-xs text-slate-500 dark:text-slate-400">
             Remembered your password?{' '}
-            <Link to="/auth/login" className="font-bold text-royal dark:text-turquoise hover:underline">
+            <Link to="/auth/login" className="font-bold text-royal dark:text-turquoise hover:underline py-1">
               Sign In
             </Link>
           </div>

@@ -146,6 +146,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
           userId: newUser.id,
           idempotencyKey: `verify-${newUser.id}-${verificationCode}`,
         });
+
+        // Immediately trigger background outbox flush so user receives verification code promptly
+        scheduler.tick().catch(err => console.error('[Scheduler] Immediate verification outbox dispatch error:', err));
       }
 
       serverDb.logAudit(newUser.id, newUser.name, 'USER_REGISTER', 'User', newUser.id, `Registered as ${assignedRole}`, clientIp);
@@ -365,7 +368,10 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         serverDb.setPasswordResetToken(user.id, resetToken, expiresAt);
 
         // Queue password recovery email with real single-use token link
-        const resetUrl = `http://localhost:5173/auth/reset-password?token=${resetToken}`;
+        const host = (req.headers['x-forwarded-host'] as string) || req.headers['host'] || 'localhost:5173';
+        const proto = (req.headers['x-forwarded-proto'] as string) || (host.includes('localhost') ? 'http' : 'https');
+        const baseUrl = process.env.APP_URL || process.env.VITE_APP_URL || `${proto}://${host}`;
+        const resetUrl = `${baseUrl}/auth/reset-password?token=${resetToken}`;
         serverDb.enqueueOutboxJob({
           recipientEmail: user.email,
           recipientName: user.name,
@@ -386,6 +392,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
           userId: user.id,
           idempotencyKey: `pwd-reset-${user.id}-${resetToken.slice(0, 8)}`,
         });
+
+        // Immediately trigger background outbox flush so user receives the email without delay
+        scheduler.tick().catch(err => console.error('[Scheduler] Immediate reset outbox dispatch error:', err));
 
         serverDb.logAudit(user.id, user.name, 'PASSWORD_RESET_REQUESTED', 'User', user.id, 'Password reset link generated', clientIp);
       }
@@ -828,6 +837,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         userId: authUser.id,
         idempotencyKey: `reg-conf-${resReg.registration!.reference_code}`,
       });
+
+      // Immediately trigger background outbox flush for registration confirmation pass
+      scheduler.tick().catch(err => console.error('[Scheduler] Immediate ticket outbox dispatch error:', err));
 
       serverDb.logAudit(authUser.id, authUser.name, 'EVENT_REGISTER', 'Registration', resReg.registration!.id, `Registered for ${event.title}`, clientIp);
 

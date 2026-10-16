@@ -53,7 +53,7 @@ export const AdminLoginPage: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-white dark:bg-[#111A33] rounded-3xl p-6 sm:p-8 shadow-xl border border-purple-200/60 dark:border-purple-900/40 space-y-5">
+        <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl border border-purple-200/60 dark:border-purple-900/40 space-y-5">
           {error && (
             <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
@@ -67,13 +67,13 @@ export const AdminLoginPage: React.FC = () => {
                 Administrator Email
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@eventpulse.com.ng"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-medium placeholder-slate-400"
+                  className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-medium placeholder-slate-400 transition-all"
                   required
                 />
               </div>
@@ -84,13 +84,13 @@ export const AdminLoginPage: React.FC = () => {
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter administrator password..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-medium placeholder-slate-400"
+                  className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-medium placeholder-slate-400 transition-all"
                   required
                 />
               </div>
@@ -104,13 +104,13 @@ export const AdminLoginPage: React.FC = () => {
                 <span className="text-[10px] text-slate-400">If enabled on account</span>
               </div>
               <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
                   placeholder="6-digit code (e.g. 123456)"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-mono tracking-wider"
+                  className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-mono tracking-wider transition-all"
                 />
               </div>
             </div>
@@ -118,7 +118,7 @@ export const AdminLoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
+              className="w-full min-h-[46px] py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 active:scale-[0.99]"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export const AdminLoginPage: React.FC = () => {
           </form>
 
           <div className="pt-2 text-center text-xs border-t border-slate-100 dark:border-navy-light/40">
-            <Link to="/auth/login" className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors">
+            <Link to="/auth/login" className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors py-1">
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Return to Standard Campus Login</span>
             </Link>

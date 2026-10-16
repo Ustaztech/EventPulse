@@ -170,14 +170,14 @@ export const StudentDashboard: React.FC = () => {
           <div className="space-y-6">
             
             {/* Top 3 Stat Cards Matching Image 2 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
               {/* Stat 1: Upcoming events */}
-              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0B2E81] dark:text-turquoise flex items-center justify-center shrink-0">
-                  <CalendarIcon className="w-7 h-7" />
+              <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs flex items-center gap-3.5 sm:gap-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0B2E81] dark:text-turquoise flex items-center justify-center shrink-0">
+                  <CalendarIcon className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <div>
-                  <span className="text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
                     {Math.max(upcomingEvents.length, 6)}
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
@@ -190,12 +190,12 @@ export const StudentDashboard: React.FC = () => {
               </div>
 
               {/* Stat 2: My registrations */}
-              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Ticket className="w-7 h-7" />
+              <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs flex items-center gap-3.5 sm:gap-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Ticket className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <div>
-                  <span className="text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
                     {activeRegistrations.length || 2}
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
@@ -208,12 +208,12 @@ export const StudentDashboard: React.FC = () => {
               </div>
 
               {/* Stat 3: Saved events */}
-              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <BookmarkIcon className="w-7 h-7" />
+              <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs flex items-center gap-3.5 sm:gap-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                  <BookmarkIcon className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <div>
-                  <span className="text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
                     {bookmarkedEvents.length || 4}
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
@@ -232,7 +232,7 @@ export const StudentDashboard: React.FC = () => {
               {/* Left Column: Upcoming Events (8 of 12 Cols) */}
               <div className="lg:col-span-8 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                     Upcoming Events
                   </h2>
                   <Link 
@@ -244,7 +244,7 @@ export const StudentDashboard: React.FC = () => {
                   </Link>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3.5 sm:space-y-4">
                   {upcomingEvents.slice(0, 4).map((evt, idx) => {
                     const startDate = new Date(evt.startTime);
                     const formattedDate = startDate.toLocaleDateString('en-GB', {
@@ -261,29 +261,29 @@ export const StudentDashboard: React.FC = () => {
                     return (
                       <div 
                         key={evt.id || idx}
-                        className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                        className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 sm:gap-4"
                       >
                         {/* Event Thumbnail & Details */}
-                        <div className="flex items-start gap-4">
-                          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-slate-900 shrink-0 relative shadow-xs">
+                        <div className="flex items-start gap-3 sm:gap-4 min-w-0 w-full sm:w-auto">
+                          <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 shrink-0 relative shadow-xs">
                             <img 
                               src={evt.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600'} 
                               alt={evt.title} 
                               className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-2">
-                              <span className="text-[10px] font-bold text-white line-clamp-1">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-1.5 sm:p-2">
+                              <span className="text-[9px] sm:text-[10px] font-bold text-white line-clamp-1">
                                 {evt.title}
                               </span>
                             </div>
                           </div>
 
-                          <div className="space-y-1.5">
-                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 dark:bg-royal/30 text-[#0B2E81] dark:text-turquoise">
+                          <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
+                            <span className="inline-block px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 dark:bg-royal/30 text-[#0B2E81] dark:text-turquoise">
                               {evt.categoryName || 'TECH & INNOVATION'}
                             </span>
                             <Link to={`/events/${evt.slug || evt.id}`}>
-                              <h3 className="font-black text-slate-900 dark:text-white text-base hover:text-[#0B2E81] dark:hover:text-turquoise transition-colors line-clamp-1">
+                              <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base hover:text-[#0B2E81] dark:hover:text-turquoise transition-colors line-clamp-1">
                                 {evt.title}
                               </h3>
                             </Link>
@@ -291,21 +291,21 @@ export const StudentDashboard: React.FC = () => {
                               {evt.description || 'Ideas. Innovation. A Smarter Campus.'}
                             </p>
                             
-                            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 pt-1">
-                              <span className="flex items-center gap-1 truncate max-w-[160px]">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500 dark:text-slate-400 pt-1">
+                              <span className="flex items-center gap-1 truncate max-w-[130px] sm:max-w-[160px]">
                                 <MapPin className="w-3.5 h-3.5 text-royal shrink-0" />
-                                <span>{evt.venueName || 'Multipurpose Hall, NSUK'}</span>
+                                <span className="truncate">{evt.venueName || 'Main Hall, NSUK'}</span>
                               </span>
                               <span className="flex items-center gap-1 shrink-0">
                                 <Users className="w-3.5 h-3.5 text-teal shrink-0" />
-                                <span>{evt.registeredCount ? `${evt.registeredCount} interested` : '320 interested'}</span>
+                                <span>{evt.registeredCount ? `${evt.registeredCount} going` : '320 interested'}</span>
                               </span>
                             </div>
                           </div>
                         </div>
 
                         {/* Date & View details Button */}
-                        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-navy-light/40 shrink-0">
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2.5 sm:gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-navy-light/40 shrink-0">
                           <div className="text-left sm:text-right">
                             <div className="flex items-center sm:justify-end gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                               <CalendarIcon className="w-3.5 h-3.5 text-[#0B2E81] dark:text-turquoise" />
@@ -318,7 +318,7 @@ export const StudentDashboard: React.FC = () => {
 
                           <Link
                             to={`/events/${evt.slug || evt.id}`}
-                            className="px-4 py-2 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+                            className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-xs shadow-xs transition-colors shrink-0"
                           >
                             View details
                           </Link>
@@ -333,7 +333,7 @@ export const StudentDashboard: React.FC = () => {
               <div className="lg:col-span-4 space-y-6">
                 
                 {/* Mini Calendar Widget Matching Image 2 */}
-                <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs space-y-4">
+                <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs space-y-4">
                   {/* Calendar Header */}
                   <div className="flex items-center justify-between">
                     <h3 className="font-black text-sm text-slate-900 dark:text-white">
@@ -344,6 +344,7 @@ export const StudentDashboard: React.FC = () => {
                         type="button"
                         onClick={() => setCalendarMonthOffset(calendarMonthOffset - 1)}
                         className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-light/40 text-slate-600 dark:text-slate-300"
+                        aria-label="Previous month"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -351,6 +352,7 @@ export const StudentDashboard: React.FC = () => {
                         type="button"
                         onClick={() => setCalendarMonthOffset(calendarMonthOffset + 1)}
                         className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-light/40 text-slate-600 dark:text-slate-300"
+                        aria-label="Next month"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
@@ -358,7 +360,7 @@ export const StudentDashboard: React.FC = () => {
                   </div>
 
                   {/* Day Names */}
-                  <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400">
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] sm:text-[11px] font-bold text-slate-400">
                     <span>Mon</span>
                     <span>Tue</span>
                     <span>Wed</span>
@@ -372,7 +374,7 @@ export const StudentDashboard: React.FC = () => {
                   <div className="grid grid-cols-7 gap-1 text-center text-xs">
                     {/* Padding cells */}
                     {Array.from({ length: firstDayIndex }).map((_, i) => (
-                      <span key={`pad-${i}`} className="p-2 text-slate-300 dark:text-slate-700">
+                      <span key={`pad-${i}`} className="p-1.5 sm:p-2 text-slate-300 dark:text-slate-700">
                         {28 + i}
                       </span>
                     ))}
@@ -386,7 +388,7 @@ export const StudentDashboard: React.FC = () => {
                       return (
                         <div 
                           key={dayNum} 
-                          className={`p-2 rounded-full relative flex flex-col items-center justify-center font-semibold transition-all ${
+                          className={`p-1.5 sm:p-2 rounded-full relative flex flex-col items-center justify-center font-semibold transition-all ${
                             isToday 
                               ? 'bg-[#0B2E81] text-white font-bold' 
                               : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/40'
@@ -394,7 +396,7 @@ export const StudentDashboard: React.FC = () => {
                         >
                           <span>{dayNum}</span>
                           {hasEvent && !isToday && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 absolute bottom-1" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 absolute bottom-0.5 sm:bottom-1" />
                           )}
                         </div>
                       );
@@ -402,7 +404,7 @@ export const StudentDashboard: React.FC = () => {
                   </div>
 
                   {/* Calendar Legend */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-navy-light/30 flex items-center justify-between text-[11px] text-slate-500">
+                  <div className="pt-3 border-t border-slate-100 dark:border-navy-light/30 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-500">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#0B2E81]" />
                       <span>Today</span>
@@ -419,7 +421,7 @@ export const StudentDashboard: React.FC = () => {
                 </div>
 
                 {/* Recent Notifications Widget Matching Image 2 */}
-                <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs space-y-4">
+                <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-black text-sm text-slate-900 dark:text-white">
                       Recent Notifications

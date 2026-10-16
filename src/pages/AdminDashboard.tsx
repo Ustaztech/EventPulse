@@ -266,8 +266,8 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Tab 1: Organiser Applications */}
         {activeTab === 'applications' && (
-          <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-900 dark:text-white text-lg">Organiser Role Applications</h3>
+          <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-4 sm:p-6 space-y-4">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-lg">Organiser Role Applications</h3>
             {applications.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center">No applications submitted yet.</p>
             ) : (
@@ -275,7 +275,7 @@ export const AdminDashboard: React.FC = () => {
                 {applications.map((app) => (
                   <div key={app.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-slate-900 dark:text-white text-sm">{app.userName}</span>
                         <span className="text-slate-400">&bull;</span>
                         <span className="text-slate-600 dark:text-slate-300">{app.userEmail}</span>
@@ -292,17 +292,17 @@ export const AdminDashboard: React.FC = () => {
                     </div>
 
                     {app.status === 'PENDING' && (
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 sm:pt-0">
                         <button
                           onClick={() => handleApproveApplication(app.id)}
-                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-xs"
+                          className="px-3.5 py-2 min-h-[38px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 shadow-xs"
                         >
                           <CheckCircle className="w-4 h-4" />
                           <span>Approve Access</span>
                         </button>
                         <button
                           onClick={() => handleRejectApplication(app.id)}
-                          className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-navy-light/40 hover:bg-rose-50 text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"
+                          className="px-3.5 py-2 min-h-[38px] rounded-xl bg-slate-100 dark:bg-navy-light/40 hover:bg-rose-50 text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5"
                         >
                           <XCircle className="w-4 h-4" />
                           <span>Reject</span>
@@ -318,8 +318,8 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Tab 2: Event Approvals Queue */}
         {activeTab === 'approvals' && (
-          <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-900 dark:text-white text-lg">Event Publication Approval Queue</h3>
+          <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-4 sm:p-6 space-y-4">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-lg">Event Publication Approval Queue</h3>
             {pendingEvents.length === 0 ? (
               <div className="text-center py-12 text-slate-400 space-y-2">
                 <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto" />
@@ -331,34 +331,34 @@ export const AdminDashboard: React.FC = () => {
                 {pendingEvents.map((evt) => (
                   <div key={evt.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
                     <div className="space-y-1 max-w-2xl">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-slate-900 dark:text-white text-base">{evt.title}</span>
                         <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise font-bold text-[10px]">{evt.format}</span>
                       </div>
                       <p className="text-slate-600 dark:text-slate-300 line-clamp-2">{evt.description}</p>
-                      <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400 pt-1">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-slate-500 dark:text-slate-400 pt-1">
                         <span>Venue: <strong>{evt.venueName || 'Online'}</strong></span>
                         <span>Organizer: <strong>{evt.organizerName}</strong></span>
                         <span>Capacity: <strong>{evt.capacity || 'Open'}</strong></span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0">
                       <Link
                         to={`/events/${evt.slug}`}
-                        className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-navy-light/50 hover:bg-slate-50 dark:hover:bg-navy-light/20 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-1"
+                        className="px-3.5 py-2 min-h-[38px] rounded-xl border border-slate-200 dark:border-navy-light/50 hover:bg-slate-50 dark:hover:bg-navy-light/20 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-1"
                       >
                         <Eye className="w-3.5 h-3.5" /> Preview
                       </Link>
                       <button
                         onClick={() => handleApproveEvent(evt.id)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-xs"
+                        className="px-4 py-2 min-h-[38px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-xs"
                       >
                         <CheckCircle className="w-4 h-4" /> Approve & Publish
                       </button>
                       <button
                         onClick={() => handleRejectEvent(evt.id)}
-                        className="px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold"
+                        className="px-3.5 py-2 min-h-[38px] rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold"
                       >
                         Request Revisions
                       </button>
@@ -372,23 +372,23 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Tab 3: User Accounts & Roles */}
         {activeTab === 'users' && (
-          <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-6 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h3 className="font-bold text-slate-900 dark:text-white text-lg">User Directory & Role Permissions</h3>
+          <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-navy-light/40 shadow-sm p-4 sm:p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-lg">User Directory & Role Permissions</h3>
               <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   placeholder="Search user by name/email..."
-                  className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-royal"
+                  className="w-full pl-9 pr-3 py-2 min-h-[40px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-1 focus:ring-royal"
                 />
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+              <table className="w-full min-w-[600px] text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-navy-dark text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold border-b border-slate-200 dark:border-navy-light/40">
                   <tr>
                     <th className="py-3 px-4">User</th>
