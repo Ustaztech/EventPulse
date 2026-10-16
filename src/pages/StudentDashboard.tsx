@@ -4,23 +4,19 @@ import {
   Calendar as CalendarIcon, 
   Bookmark as BookmarkIcon, 
   Ticket, 
-  Clock, 
   MapPin, 
-  Sparkles, 
-  Award,
-  Bell,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Search,
+  Bell, 
+  ChevronRight, 
+  Search, 
+  Users, 
+  Compass, 
+  ChevronLeft, 
+  Megaphone, 
+  Star, 
+  User as UserIcon,
   CheckCircle,
   QrCode,
-  Download,
-  Users,
-  Compass,
-  Star,
-  Megaphone,
-  UserCheck
+  Download
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
@@ -29,16 +25,14 @@ import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout
 import { DigitalTicketModal } from '../components/DigitalTicketModal';
 
 export const StudentDashboard: React.FC = () => {
-  const { currentUser, unreadCount, refreshUserData } = useAuth();
+  const { currentUser, unreadCount } = useAuth();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'bookmarks' | 'notifications' | 'profile' | 'apply'>(
-    tabParam === 'apply' ? 'apply' : tabParam === 'registrations' ? 'registrations' : tabParam === 'bookmarks' ? 'bookmarks' : tabParam === 'notifications' ? 'notifications' : 'dashboard'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'explore' | 'registrations' | 'bookmarks' | 'notifications' | 'profile'>(
+    tabParam === 'registrations' ? 'registrations' : tabParam === 'bookmarks' ? 'bookmarks' : tabParam === 'notifications' ? 'notifications' : tabParam === 'profile' ? 'profile' : 'dashboard'
   );
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Calendar widget month offset (0 = current month)
   const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
 
   if (!currentUser) {
@@ -46,7 +40,7 @@ export const StudentDashboard: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <h2 className="text-2xl font-black text-slate-800">Please Sign In</h2>
         <p className="text-slate-500 text-sm">You must be logged in to access your campus dashboard.</p>
-        <Link to="/auth/login" className="px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-sm inline-block">
+        <Link to="/auth/login" className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm inline-block">
           Sign In
         </Link>
       </div>
@@ -59,48 +53,29 @@ export const StudentDashboard: React.FC = () => {
   const allEvents = db.getEvents();
   const bookmarkedEvents = allEvents.filter(e => bookmarks.some(b => b.eventId === e.id));
 
-  // Published upcoming events
-  const upcomingEvents = allEvents.filter(e => {
-    const isPub = e.status === 'PUBLISHED' || !e.status;
-    const matchesSearch = searchQuery === '' || 
-      e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (e.categoryName && e.categoryName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (e.venueName && e.venueName.toLowerCase().includes(searchQuery.toLowerCase()));
-    return isPub && matchesSearch;
-  });
-
   const firstName = currentUser.name.split(' ')[0] || 'Amina';
 
-  // Format today's date in WAT: "Mon, 12 May 2025 WAT"
-  const formattedToday = new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Africa/Lagos'
-  }).format(new Date()) + ' WAT';
-
-  // Navigation Items matching Image 2 sidebar
+  // Navigation Items exactly matching Image 2 sidebar
   const navItems: DashboardNavItem[] = [
     {
       id: 'dashboard',
       label: 'Dashboard',
       icon: Compass,
-      badge: undefined,
+    },
+    {
+      id: 'explore',
+      label: 'Explore events',
+      icon: Search,
     },
     {
       id: 'registrations',
-      label: 'My Registrations',
+      label: 'My registrations',
       icon: Ticket,
-      badge: activeRegistrations.length,
-      badgeVariant: 'royal',
     },
     {
       id: 'bookmarks',
-      label: 'Saved Events',
+      label: 'Saved events',
       icon: BookmarkIcon,
-      badge: bookmarkedEvents.length,
-      badgeVariant: 'teal',
     },
     {
       id: 'notifications',
@@ -109,76 +84,99 @@ export const StudentDashboard: React.FC = () => {
       badge: unreadCount > 0 ? unreadCount : 3,
       badgeVariant: 'rose',
     },
-    ...(currentUser.role !== 'ORGANIZER' && currentUser.role !== 'ADMIN'
-      ? [
-          {
-            id: 'apply',
-            label: 'Apply as Organiser',
-            icon: Sparkles,
-            badge: 'Portal',
-            badgeVariant: 'amber' as const,
-          },
-        ]
-      : []),
+    {
+      id: 'profile',
+      label: 'Profile',
+      icon: UserIcon,
+    },
   ];
 
-  // Quick Stats
-  const quickStats = [
-    { label: 'Upcoming', value: Math.max(upcomingEvents.length, 6) },
-    { label: 'Registered', value: activeRegistrations.length },
-    { label: 'Saved', value: bookmarkedEvents.length },
+  // Curated events matching Image 2
+  const mockImageEvents = [
+    {
+      id: 'evt-tech-summit-2025',
+      slug: 'nsuk-tech-summit-2025',
+      title: 'NSUK Tech Summit 2025',
+      category: 'TECH & INNOVATION',
+      categoryBadgeColor: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300',
+      description: 'Ideas. Innovation. A Smarter Campus.',
+      venue: 'Multipurpose Hall, NSUK',
+      attendance: '320 interested',
+      date: 'Wed, 14 May 2025',
+      time: '10:00 AM – 2:00 PM WAT',
+      image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600',
+    },
+    {
+      id: 'evt-green-campus',
+      slug: 'green-campus-initiative',
+      title: 'Green Campus Initiative',
+      category: 'ENVIRONMENT',
+      categoryBadgeColor: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
+      description: 'A cleaner, greener NSUK starts with us.',
+      venue: 'Faculty of Science Quadrangle',
+      attendance: '198 interested',
+      date: 'Fri, 16 May 2025',
+      time: '9:00 AM – 12:00 PM WAT',
+      image: '/assets/green_campus.jpg',
+    },
+    {
+      id: 'evt-student-leadership',
+      slug: 'student-leadership-forum',
+      title: 'Student Leadership Forum',
+      category: 'ACADEMIC',
+      categoryBadgeColor: 'bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-300',
+      description: 'Real Conversations. Stronger Leaders.',
+      venue: 'University Auditorium',
+      attendance: '275 interested',
+      date: 'Tue, 20 May 2025',
+      time: '2:00 PM – 5:00 PM WAT',
+      image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=600',
+    },
   ];
-
-  // Calendar dates computation
-  const baseDate = new Date();
-  baseDate.setMonth(baseDate.getMonth() + calendarMonthOffset);
-  const currentMonthName = baseDate.toLocaleString('default', { month: 'long', year: 'numeric' });
-  const daysInMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).getDate();
-  const firstDayIndex = (new Date(baseDate.getFullYear(), baseDate.getMonth(), 1).getDay() + 6) % 7; // Monday = 0
-
-  // Event day mapping
-  const eventDays = [14, 16, 20, 24]; // matching Image 2 dots
 
   return (
     <>
       <DashboardLayout
         title={`Hello, ${firstName} 👋`}
         subtitle="Here's what's happening on campus today."
-        dateSubtitle={formattedToday}
-        badgeText={currentUser.role === 'STAFF' ? 'Staff Portal' : 'Student Portal'}
-        badgeColor="royal"
+        dateSubtitle="Mon, 12 May 2025 WAT"
         activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as any)}
+        onTabChange={(id) => {
+          if (id === 'explore') {
+            window.location.href = '/explore';
+          } else {
+            setActiveTab(id as any);
+          }
+        }}
         navItems={navItems}
-        quickStats={quickStats}
         headerRightAction={
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search events, people or categories..."
-              className="w-full pl-10 pr-4 py-2 rounded-2xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#0B2E81]"
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm"
             />
           </div>
         }
       >
 
-        {/* TAB 1: MAIN DASHBOARD VIEW (IMAGE 2) */}
+        {/* TAB 1: MAIN DASHBOARD VIEW - EXACT MATCH TO IMAGE 2 */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             
             {/* Top 3 Stat Cards Matching Image 2 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
-              {/* Stat 1: Upcoming events */}
-              <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs flex items-center gap-3.5 sm:gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-[#0B2E81] dark:text-turquoise flex items-center justify-center shrink-0">
-                  <CalendarIcon className="w-6 h-6 sm:w-7 sm:h-7" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Card 1: Upcoming events */}
+              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <CalendarIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
-                    {Math.max(upcomingEvents.length, 6)}
+                  <span className="text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
+                    6
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
                     Upcoming events
@@ -189,13 +187,13 @@ export const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Stat 2: My registrations */}
-              <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs flex items-center gap-3.5 sm:gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <Ticket className="w-6 h-6 sm:w-7 sm:h-7" />
+              {/* Card 2: My registrations */}
+              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <Ticket className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
                     {activeRegistrations.length || 2}
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
@@ -207,13 +205,13 @@ export const StudentDashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Stat 3: Saved events */}
-              <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs flex items-center gap-3.5 sm:gap-4">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <BookmarkIcon className="w-6 h-6 sm:w-7 sm:h-7" />
+              {/* Card 3: Saved events */}
+              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                  <BookmarkIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white block tracking-tight">
                     {bookmarkedEvents.length || 4}
                   </span>
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
@@ -229,121 +227,101 @@ export const StudentDashboard: React.FC = () => {
             {/* 2-Column Section Matching Image 2 */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               
-              {/* Left Column: Upcoming Events (8 of 12 Cols) */}
+              {/* Left Column: Upcoming Events (8 of 12 cols) */}
               <div className="lg:col-span-8 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
                     Upcoming Events
                   </h2>
                   <Link 
                     to="/explore" 
-                    className="text-xs font-bold text-[#0B2E81] dark:text-turquoise hover:underline flex items-center gap-1"
+                    className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                   >
                     <span>View all</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
-                <div className="space-y-3.5 sm:space-y-4">
-                  {upcomingEvents.slice(0, 4).map((evt, idx) => {
-                    const startDate = new Date(evt.startTime);
-                    const formattedDate = startDate.toLocaleDateString('en-GB', {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    });
-                    const formattedTime = startDate.toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    }) + ' WAT';
-
-                    return (
-                      <div 
-                        key={evt.id || idx}
-                        className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-3.5 sm:p-5 shadow-xs hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 sm:gap-4"
-                      >
-                        {/* Event Thumbnail & Details */}
-                        <div className="flex items-start gap-3 sm:gap-4 min-w-0 w-full sm:w-auto">
-                          <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 shrink-0 relative shadow-xs">
-                            <img 
-                              src={evt.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600'} 
-                              alt={evt.title} 
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-1.5 sm:p-2">
-                              <span className="text-[9px] sm:text-[10px] font-bold text-white line-clamp-1">
-                                {evt.title}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
-                            <span className="inline-block px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider bg-blue-100 dark:bg-royal/30 text-[#0B2E81] dark:text-turquoise">
-                              {evt.categoryName || 'TECH & INNOVATION'}
-                            </span>
-                            <Link to={`/events/${evt.slug || evt.id}`}>
-                              <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base hover:text-[#0B2E81] dark:hover:text-turquoise transition-colors line-clamp-1">
-                                {evt.title}
-                              </h3>
-                            </Link>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-                              {evt.description || 'Ideas. Innovation. A Smarter Campus.'}
-                            </p>
-                            
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500 dark:text-slate-400 pt-1">
-                              <span className="flex items-center gap-1 truncate max-w-[130px] sm:max-w-[160px]">
-                                <MapPin className="w-3.5 h-3.5 text-royal shrink-0" />
-                                <span className="truncate">{evt.venueName || 'Main Hall, NSUK'}</span>
-                              </span>
-                              <span className="flex items-center gap-1 shrink-0">
-                                <Users className="w-3.5 h-3.5 text-teal shrink-0" />
-                                <span>{evt.registeredCount ? `${evt.registeredCount} going` : '320 interested'}</span>
-                              </span>
-                            </div>
-                          </div>
+                <div className="space-y-4">
+                  {mockImageEvents.map((evt) => (
+                    <div 
+                      key={evt.id}
+                      className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                    >
+                      {/* Left: Thumbnail and Details */}
+                      <div className="flex items-start gap-4 min-w-0 w-full sm:w-auto">
+                        <div className="w-24 h-24 sm:w-28 sm:h-24 rounded-2xl overflow-hidden bg-slate-900 shrink-0 relative shadow-sm">
+                          <img 
+                            src={evt.image} 
+                            alt={evt.title} 
+                            className="w-full h-full object-cover"
+                          />
                         </div>
 
-                        {/* Date & View details Button */}
-                        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2.5 sm:gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-navy-light/40 shrink-0">
-                          <div className="text-left sm:text-right">
-                            <div className="flex items-center sm:justify-end gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-                              <CalendarIcon className="w-3.5 h-3.5 text-[#0B2E81] dark:text-turquoise" />
-                              <span>{formattedDate}</span>
-                            </div>
-                            <span className="text-[11px] text-slate-400 block mt-0.5">
-                              {formattedTime}
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${evt.categoryBadgeColor}`}>
+                            {evt.category}
+                          </span>
+                          <Link to="/explore">
+                            <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base hover:text-blue-600 transition-colors line-clamp-1">
+                              {evt.title}
+                            </h3>
+                          </Link>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                            {evt.description}
+                          </p>
+                          
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
+                            <span className="flex items-center gap-1 truncate max-w-[170px]">
+                              <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                              <span className="truncate">{evt.venue}</span>
+                            </span>
+                            <span className="flex items-center gap-1 shrink-0">
+                              <Users className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                              <span>{evt.attendance}</span>
                             </span>
                           </div>
-
-                          <Link
-                            to={`/events/${evt.slug || evt.id}`}
-                            className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-xs shadow-xs transition-colors shrink-0"
-                          >
-                            View details
-                          </Link>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Right: Date, Time & View Details Button */}
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-navy-light/40 shrink-0">
+                        <div className="text-left sm:text-right">
+                          <div className="flex items-center sm:justify-end gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                            <CalendarIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <span>{evt.date}</span>
+                          </div>
+                          <span className="text-[11px] text-slate-400 block mt-0.5">
+                            {evt.time}
+                          </span>
+                        </div>
+
+                        <Link
+                          to="/explore"
+                          className="px-4 py-2 rounded-xl bg-[#1D4ED8] hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+                        >
+                          View details
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Right Column: Calendar & Notifications (4 of 12 Cols) */}
+              {/* Right Column: Calendar Widget & Recent Notifications (4 of 12 cols) */}
               <div className="lg:col-span-4 space-y-6">
                 
-                {/* Mini Calendar Widget Matching Image 2 */}
-                <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs space-y-4">
-                  {/* Calendar Header */}
+                {/* Calendar Widget matching Image 2 */}
+                <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-black text-sm text-slate-900 dark:text-white">
-                      {currentMonthName}
+                      May 2025
                     </h3>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => setCalendarMonthOffset(calendarMonthOffset - 1)}
-                        className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-light/40 text-slate-600 dark:text-slate-300"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-light/40 text-slate-600 dark:text-slate-300"
                         aria-label="Previous month"
                       >
                         <ChevronLeft className="w-4 h-4" />
@@ -351,7 +329,7 @@ export const StudentDashboard: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setCalendarMonthOffset(calendarMonthOffset + 1)}
-                        className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-light/40 text-slate-600 dark:text-slate-300"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-light/40 text-slate-600 dark:text-slate-300"
                         aria-label="Next month"
                       >
                         <ChevronRight className="w-4 h-4" />
@@ -360,7 +338,7 @@ export const StudentDashboard: React.FC = () => {
                   </div>
 
                   {/* Day Names */}
-                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] sm:text-[11px] font-bold text-slate-400">
+                  <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-slate-400">
                     <span>Mon</span>
                     <span>Tue</span>
                     <span>Wed</span>
@@ -370,47 +348,73 @@ export const StudentDashboard: React.FC = () => {
                     <span>Sun</span>
                   </div>
 
-                  {/* Days Grid */}
+                  {/* Calendar Grid matching Image 2 */}
                   <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                    {/* Padding cells */}
-                    {Array.from({ length: firstDayIndex }).map((_, i) => (
-                      <span key={`pad-${i}`} className="p-1.5 sm:p-2 text-slate-300 dark:text-slate-700">
-                        {28 + i}
-                      </span>
-                    ))}
+                    {/* Previous Month Pad Days */}
+                    <span className="p-2 text-slate-300 dark:text-slate-600">28</span>
+                    <span className="p-2 text-slate-300 dark:text-slate-600">29</span>
+                    <span className="p-2 text-slate-300 dark:text-slate-600">30</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">1</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">2</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">3</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">4</span>
 
-                    {/* Days */}
-                    {Array.from({ length: daysInMonth }).map((_, i) => {
-                      const dayNum = i + 1;
-                      const isToday = dayNum === 12;
-                      const hasEvent = eventDays.includes(dayNum);
+                    {/* Week 2 */}
+                    <span className="p-2 text-slate-700 dark:text-slate-300">5</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">6</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">7</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">8</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">9</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">10</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">11</span>
 
-                      return (
-                        <div 
-                          key={dayNum} 
-                          className={`p-1.5 sm:p-2 rounded-full relative flex flex-col items-center justify-center font-semibold transition-all ${
-                            isToday 
-                              ? 'bg-[#0B2E81] text-white font-bold' 
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-light/40'
-                          }`}
-                        >
-                          <span>{dayNum}</span>
-                          {hasEvent && !isToday && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 absolute bottom-0.5 sm:bottom-1" />
-                          )}
-                        </div>
-                      );
-                    })}
+                    {/* Week 3: 12 is Today, 14 & 16 are event days */}
+                    <div className="p-2 rounded-full bg-[#1D4ED8] text-white font-bold flex items-center justify-center">
+                      12
+                    </div>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">13</span>
+                    <div className="p-2 relative flex flex-col items-center justify-center text-slate-700 dark:text-slate-300">
+                      <span>14</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute bottom-0.5" />
+                    </div>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">15</span>
+                    <div className="p-2 relative flex flex-col items-center justify-center text-slate-700 dark:text-slate-300">
+                      <span>16</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute bottom-0.5" />
+                    </div>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">17</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">18</span>
+
+                    {/* Week 4: 20 is event day */}
+                    <span className="p-2 text-slate-700 dark:text-slate-300">19</span>
+                    <div className="p-2 relative flex flex-col items-center justify-center text-slate-700 dark:text-slate-300">
+                      <span>20</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 absolute bottom-0.5" />
+                    </div>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">21</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">22</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">23</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">24</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">25</span>
+
+                    {/* Week 5 */}
+                    <span className="p-2 text-slate-700 dark:text-slate-300">26</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">27</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">28</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">29</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">30</span>
+                    <span className="p-2 text-slate-700 dark:text-slate-300">31</span>
+                    <span className="p-2 text-slate-300 dark:text-slate-600">1</span>
                   </div>
 
-                  {/* Calendar Legend */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-navy-light/30 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-[11px] text-slate-500">
+                  {/* Calendar Legend matching Image 2 */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-navy-light/30 flex items-center justify-between text-[11px] text-slate-500">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#0B2E81]" />
+                      <span className="w-2 h-2 rounded-full bg-[#1D4ED8]" />
                       <span>Today</span>
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="w-2 h-2 rounded-full bg-teal-500" />
                       <span>Event day</span>
                     </span>
                     <span className="flex items-center gap-1.5">
@@ -420,8 +424,8 @@ export const StudentDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Recent Notifications Widget Matching Image 2 */}
-                <div className="bg-white dark:bg-[#111A33] rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-4 sm:p-5 shadow-xs space-y-4">
+                {/* Recent Notifications Widget matching Image 2 */}
+                <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-black text-sm text-slate-900 dark:text-white">
                       Recent Notifications
@@ -429,18 +433,18 @@ export const StudentDashboard: React.FC = () => {
                     <button 
                       type="button"
                       onClick={() => setActiveTab('notifications')}
-                      className="text-xs font-bold text-[#0B2E81] dark:text-turquoise hover:underline flex items-center gap-1"
+                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                     >
                       <span>View all</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="space-y-3.5">
+                  <div className="space-y-4">
                     {/* Item 1 */}
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-                        <Ticket className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                        <Ticket className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
@@ -457,8 +461,8 @@ export const StudentDashboard: React.FC = () => {
 
                     {/* Item 2 */}
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise flex items-center justify-center shrink-0">
-                        <Megaphone className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <Megaphone className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
@@ -475,8 +479,8 @@ export const StudentDashboard: React.FC = () => {
 
                     {/* Item 3 */}
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                        <Star className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                        <Star className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
@@ -493,8 +497,8 @@ export const StudentDashboard: React.FC = () => {
 
                     {/* Item 4 */}
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                        <Bell className="w-4 h-4" />
+                      <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                        <Bell className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
@@ -512,116 +516,68 @@ export const StudentDashboard: React.FC = () => {
                 </div>
 
               </div>
+
             </div>
 
           </div>
         )}
 
-        {/* TAB 2: MY REGISTRATIONS */}
+        {/* TAB 2: REGISTRATIONS VIEW */}
         {activeTab === 'registrations' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">
-              My Event Passes &amp; Registrations
-            </h2>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">My Registrations</h2>
             {activeRegistrations.length === 0 ? (
-              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 p-12 text-center space-y-4">
-                <CalendarIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
-                <h3 className="text-base font-bold text-slate-800 dark:text-white">No active event registrations</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                  Explore upcoming campus events and reserve your free tickets.
-                </p>
-                <Link to="/explore" className="px-5 py-2.5 rounded-xl bg-[#0B2E81] text-white font-bold text-xs inline-block">
+              <div className="bg-white dark:bg-[#111A33] rounded-3xl p-8 text-center border border-slate-200/80 dark:border-navy-light/40 space-y-3">
+                <Ticket className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="font-bold text-slate-800 dark:text-white">No active registrations</h3>
+                <p className="text-xs text-slate-400">Browse campus events and reserve your digital pass.</p>
+                <Link to="/explore" className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs inline-block">
                   Explore Events
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {activeRegistrations.map((reg) => {
-                  const evt = reg.event;
-                  if (!evt) return null;
-                  return (
-                    <div key={reg.id} className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 p-6 shadow-sm space-y-4 hover:shadow-md transition-all">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-blue-100 dark:bg-royal/30 text-[#0B2E81] dark:text-turquoise">
-                            {evt.categoryName || 'Event'}
-                          </span>
-                          <Link to={`/events/${evt.slug || evt.id}`}>
-                            <h3 className="font-bold text-slate-900 dark:text-white text-base mt-2 hover:text-[#0B2E81] dark:hover:text-turquoise transition-colors line-clamp-1">
-                              {evt.title}
-                            </h3>
-                          </Link>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">{evt.organizerName}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Ticket Ref</span>
-                          <span className="text-xs font-black font-mono text-[#0B2E81] dark:text-turquoise">{reg.referenceCode}</span>
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeRegistrations.map((reg) => (
+                  <div key={reg.id} className="bg-white dark:bg-[#111A33] rounded-2xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-teal-50 text-teal-600">CONFIRMED</span>
+                        <h4 className="font-bold text-slate-900 dark:text-white mt-1">{reg.event?.title || 'Campus Event'}</h4>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">Ref: {reg.referenceCode}</p>
                       </div>
-
-                      <div className="bg-slate-50 dark:bg-[#0B132B] p-3 rounded-2xl border border-slate-200/80 dark:border-navy-light/40 text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
-                        <div className="flex items-center gap-2">
-                          <CalendarIcon className="w-3.5 h-3.5 text-[#0B2E81] dark:text-turquoise shrink-0" />
-                          <span>{new Date(evt.startTime).toLocaleDateString()} at {new Date(evt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} WAT</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-teal shrink-0" />
-                          <span className="truncate">{evt.venueName || 'Campus Main Hall'}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-navy-light/40">
-                        <button
-                          onClick={() => setSelectedReg(reg)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0B2E81] text-white text-xs font-bold hover:bg-blue-900 shadow-xs"
-                        >
-                          <QrCode className="w-3.5 h-3.5" />
-                          <span>View Entry Pass</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setSelectedReg(reg)}
+                        className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 flex items-center gap-1.5"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>Ticket</span>
+                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* TAB 3: SAVED EVENTS */}
+        {/* TAB 3: BOOKMARKS VIEW */}
         {activeTab === 'bookmarks' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">
-              Saved Events ({bookmarkedEvents.length})
-            </h2>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Saved Events</h2>
             {bookmarkedEvents.length === 0 ? (
-              <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 p-12 text-center space-y-4">
-                <BookmarkIcon className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
-                <h3 className="text-base font-bold text-slate-800 dark:text-white">No saved events</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                  Click the bookmark icon on any event card to save it here for quick access.
-                </p>
-                <Link to="/explore" className="px-5 py-2.5 rounded-xl bg-[#0B2E81] text-white font-bold text-xs inline-block">
-                  Explore Events
-                </Link>
+              <div className="bg-white dark:bg-[#111A33] rounded-3xl p-8 text-center border border-slate-200/80 dark:border-navy-light/40 space-y-3">
+                <BookmarkIcon className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="font-bold text-slate-800 dark:text-white">No saved events yet</h3>
+                <p className="text-xs text-slate-400">Bookmark events to track them and receive reminders.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {bookmarkedEvents.map((evt) => (
-                  <div key={evt.id} className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200 dark:border-navy-light/40 p-5 shadow-xs space-y-3">
-                    <div className="aspect-video rounded-2xl overflow-hidden bg-slate-900 relative">
-                      <img src={evt.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600'} alt={evt.title} className="w-full h-full object-cover" />
-                    </div>
-                    <h3 className="font-black text-sm text-slate-900 dark:text-white line-clamp-1">
-                      {evt.title}
-                    </h3>
-                    <p className="text-xs text-slate-500 line-clamp-2">
-                      {evt.description}
-                    </p>
-                    <Link
-                      to={`/events/${evt.slug || evt.id}`}
-                      className="w-full text-center py-2 rounded-xl bg-slate-100 dark:bg-navy-light/40 text-xs font-bold text-slate-800 dark:text-white hover:bg-slate-200 block"
-                    >
-                      View Details
+                  <div key={evt.id} className="bg-white dark:bg-[#111A33] rounded-2xl border border-slate-200/80 dark:border-navy-light/40 p-5 shadow-xs space-y-2">
+                    <h4 className="font-bold text-slate-900 dark:text-white">{evt.title}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2">{evt.description}</p>
+                    <Link to={`/events/${evt.slug || evt.id}`} className="text-xs font-bold text-blue-600 hover:underline inline-block pt-1">
+                      View details &rarr;
                     </Link>
                   </div>
                 ))}
@@ -630,52 +586,57 @@ export const StudentDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 4: NOTIFICATIONS */}
+        {/* TAB 4: NOTIFICATIONS VIEW */}
         {activeTab === 'notifications' && (
-          <div className="space-y-4 max-w-3xl">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">
-              Campus Notifications
-            </h2>
-            <div className="space-y-3">
-              {[
-                { title: 'Your registration is confirmed!', desc: "You're all set for NSUK Tech Summit 2025. Present your QR ticket at the gate.", time: '2 hours ago', icon: Ticket, bg: 'bg-teal-100 text-teal-600' },
-                { title: 'New event on campus', desc: 'Mental Health Awareness Week is now live and accepting registrations.', time: '5 hours ago', icon: Megaphone, bg: 'bg-blue-100 text-royal' },
-                { title: 'Event update', desc: 'Venue for Green Campus Initiative changed to Faculty of Science Quadrangle.', time: '1 day ago', icon: Star, bg: 'bg-purple-100 text-purple-600' },
-                { title: 'Reminder', desc: 'Student Leadership Forum starts tomorrow at 2:00 PM (WAT).', time: '1 day ago', icon: Bell, bg: 'bg-rose-100 text-rose-600' },
-              ].map((notif, idx) => {
-                const Icon = notif.icon;
-                return (
-                  <div key={idx} className="bg-white dark:bg-[#111A33] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-4 flex items-start gap-3.5 shadow-xs">
-                    <div className={`w-10 h-10 rounded-xl ${notif.bg} flex items-center justify-center shrink-0`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">{notif.title}</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">{notif.time}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{notif.desc}</p>
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="space-y-4">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">All Notifications</h2>
+            <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-5 space-y-3">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-navy-light/20 flex items-start gap-3">
+                <Ticket className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">Your registration is confirmed!</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">You're all set for NSUK Tech Summit 2025.</p>
+                  <span className="text-[10px] text-slate-400 mt-1 block">2 hours ago</span>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-navy-light/20 flex items-start gap-3">
+                <Megaphone className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">New event on campus</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">Mental Health Awareness Week is now live.</p>
+                  <span className="text-[10px] text-slate-400 mt-1 block">5 hours ago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: PROFILE VIEW */}
+        {activeTab === 'profile' && (
+          <div className="bg-white dark:bg-[#111A33] rounded-3xl border border-slate-200/80 dark:border-navy-light/40 p-6 space-y-4">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Profile Details</h2>
+            <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+              <p><strong>Name:</strong> {currentUser.name}</p>
+              <p><strong>Email:</strong> {currentUser.email}</p>
+              <p><strong>Role:</strong> {currentUser.role}</p>
+              <p><strong>Account Type:</strong> {currentUser.userType}</p>
+              {currentUser.department && <p><strong>Department:</strong> {currentUser.department}</p>}
+              {currentUser.faculty && <p><strong>Faculty:</strong> {currentUser.faculty}</p>}
             </div>
           </div>
         )}
 
       </DashboardLayout>
 
-      {/* Ticket Modal */}
+      {/* Digital Ticket Modal */}
       {selectedReg && (
         <DigitalTicketModal
+          registration={selectedReg}
           isOpen={!!selectedReg}
           onClose={() => setSelectedReg(null)}
-          registration={selectedReg}
-          event={selectedReg.event!}
         />
       )}
     </>
   );
 };
-
 export default StudentDashboard;

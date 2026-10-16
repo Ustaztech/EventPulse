@@ -344,7 +344,7 @@ export const OrganizerDashboard: React.FC = () => {
       badgeText="Organiser Workspace"
       badgeColor="teal"
       activeTab={activeTab}
-      onTabChange={(id) => setActiveTab(id)}
+      onTabChange={(id) => setActiveTab(id as any)}
       navItems={navItems}
       headerActions={
         <button

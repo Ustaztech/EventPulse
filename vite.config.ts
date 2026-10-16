@@ -5,21 +5,29 @@ import { handleApiRequest } from './server/routes';
 import { scheduler } from './server/scheduler';
 
 function eventPulseBackendPlugin(): Plugin {
+  const apiMiddleware = async (req: any, res: any, next: any) => {
+    const rawUrl = req.originalUrl || req.url || '';
+    if (rawUrl === '/api' || rawUrl.startsWith('/api/') || rawUrl.startsWith('/api?')) {
+      try {
+        req.url = rawUrl;
+        await handleApiRequest(req, res);
+      } catch (err) {
+        next(err);
+      }
+    } else {
+      next();
+    }
+  };
+
   return {
     name: 'eventpulse-backend',
     configureServer(server) {
-      // Start the persistent automated lifecycle & outbox scheduler in dev server
       scheduler.startBackgroundWorker(30000);
-
-      server.middlewares.use('/api', async (req, res, next) => {
-        try {
-          const originalUrl = req.url || '';
-          req.url = '/api' + (originalUrl.startsWith('/') ? originalUrl : '/' + originalUrl);
-          await handleApiRequest(req, res);
-        } catch (err) {
-          next(err);
-        }
-      });
+      server.middlewares.use(apiMiddleware);
+    },
+    configurePreviewServer(server) {
+      scheduler.startBackgroundWorker(30000);
+      server.middlewares.use(apiMiddleware);
     },
   };
 }

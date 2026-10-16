@@ -67,7 +67,11 @@ function getAuthUser(req: IncomingMessage): any | null {
 export async function handleApiRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = req.url || '';
   const method = req.method || 'GET';
-  const pathname = url.split('?')[0];
+  let pathname = url.split('?')[0];
+  // Ensure pathname reliably starts with /api without double prefixes
+  pathname = pathname.replace(/^\/api\/api(\/|$)/, '/api$1');
+  if (!pathname.startsWith('/')) pathname = '/' + pathname;
+  if (!pathname.startsWith('/api')) pathname = '/api' + pathname;
   const query = parseQuery(url);
 
   // Client IP helper

@@ -31,7 +31,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(endpoint, {
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  const response = await fetch(normalizedEndpoint, {
     ...options,
     headers,
   });
@@ -39,7 +41,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data?.error || `HTTP error ${response.status}`);
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    if (response.status === 404) {
+      throw new Error(`Endpoint unavailable (${response.status}). Please verify the backend service is running or reload.`);
+    }
+    throw new Error(`HTTP error ${response.status}`);
   }
 
   return data as T;
