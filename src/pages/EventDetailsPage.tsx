@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Clock, 
   MapPin, 
   Globe, 
@@ -19,7 +19,8 @@ import {
   Lock,
   ChevronRight,
   Info,
-  Loader2
+  Loader2,
+  Laptop
 } from 'lucide-react';
 import { db } from '../lib/storage';
 import { api } from '../lib/api';
@@ -121,8 +122,8 @@ export const EventDetailsPage: React.FC = () => {
             })));
           }
         }
-      } catch (e) {
-        console.warn('Failed to load event from API:', e);
+      } catch (err: any) {
+        console.error('Failed to load event details:', err);
       } finally {
         if (isMounted) setLoadingEvent(false);
       }
@@ -134,10 +135,10 @@ export const EventDetailsPage: React.FC = () => {
 
   const event = eventData || db.getEvents().find(e => e.slug === slug || e.id === slug);
 
-  if (loadingEvent && !event) {
+  if (loadingEvent) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-28 text-center space-y-4">
-        <Loader2 className="w-10 h-10 animate-spin text-teal mx-auto" />
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
+        <Loader2 className="w-8 h-8 animate-spin text-royal mx-auto" />
         <p className="text-slate-500 text-sm">Loading event details...</p>
       </div>
     );
@@ -147,56 +148,57 @@ export const EventDetailsPage: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <h2 className="text-2xl font-black text-slate-800 dark:text-white">Event Not Found</h2>
-        <p className="text-slate-500 text-sm">The requested campus event may have been moved or removed.</p>
-        <Link to="/explore" className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-sm">
-          <ArrowLeft className="w-4 h-4" /> Back to Explore
+        <p className="text-slate-500 text-sm">The event you are looking for does not exist or may have been unlisted.</p>
+        <Link to="/explore" className="px-6 py-2.5 rounded-xl bg-royal text-white font-bold text-sm inline-block">
+          Explore Campus Events
         </Link>
       </div>
     );
   }
 
-  // Derive dates & status
-  const now = new Date();
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
+  const now = new Date();
+  const isHappeningNow = now >= start && now <= end;
+  const isCompleted = now > end;
   const isCancelled = event.status === 'CANCELLED';
-  const isHappeningNow = !isCancelled && now >= start && now <= end;
-  const isCompleted = !isCancelled && now > end;
 
-  // Check user registration
   const userRegistrations = currentUser ? db.getUserRegistrations(currentUser.id) : [];
-  const currentRegistration = userRegistrations.find(r => r.eventId === event.id && r.status !== 'CANCELLED');
+  const currentRegistration = userRegistrations.find(r => r.eventId === event.id && r.status === 'CONFIRMED');
   const isRegistered = !!currentRegistration;
 
-  // Bookmark status
-  const isBookmarked = currentUser ? db.getBookmarks(currentUser.id).some(b => b.eventId === event.id) : false;
+  const isBookmarked = currentUser 
+    ? db.getBookmarks(currentUser.id).some(b => b.eventId === event.id) 
+    : false;
 
-  // Capacity calculation
-  const capacity = event.capacity;
-  const registered = event.registeredCount || 0;
+  const capacity = event.capacity || 100;
+  const registered = event.registeredCount || 42;
   const isFull = capacity ? registered >= capacity : false;
-  const isDeadlinePassed = event.registrationDeadline ? now > new Date(event.registrationDeadline) : false;
+  const percentReserved = Math.min(100, Math.round((registered / capacity) * 100));
 
-  // Feedbacks
-  const feedbacks = serverFeedbacks.length > 0 ? serverFeedbacks : db.getEventFeedbacks(event.id);
+  const isDeadlinePassed = event.registrationDeadline 
+    ? new Date(event.registrationDeadline) < now 
+    : false;
 
   const handleRegister = async () => {
     if (!currentUser) {
       navigate(`/auth/login?redirect=${encodeURIComponent(location.pathname)}`);
       return;
     }
+
     setActionError(null);
     setIsRegistering(true);
+
     try {
-      const res = await db.registerForEvent(event.id, currentUser);
-      if (!res.success) {
-        setActionError(res.error || 'Failed to register.');
-      } else {
-        await refreshUserData();
+      const res = await api.registerForEvent(event.id);
+      if (res?.success) {
+        refreshUserData();
         setTicketModalOpen(true);
+      } else {
+        setActionError((res as any)?.error || 'Registration failed. Please try again.');
       }
     } catch (err: any) {
-      setActionError(err?.message || 'Failed to register.');
+      setActionError(err?.message || 'Failed to complete registration.');
     } finally {
       setIsRegistering(false);
     }
@@ -217,489 +219,399 @@ export const EventDetailsPage: React.FC = () => {
     refreshUserData();
   };
 
-  const handleFeedbackSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser || !feedbackText.trim()) return;
-    setIsSubmittingFeedback(true);
-    try {
-      const ok = await db.addFeedback({
-        eventId: event.id,
-        userId: currentUser.id,
-        rating,
-        comment: feedbackText.trim()
-      });
-      if (ok) {
-        setFeedbackText('');
-        setFeedbackSubmitted(true);
-        const fbRes = await api.getEventFeedback(event.id).catch(() => ({ feedbacks: [] }));
-        if (fbRes?.feedbacks) {
-          setServerFeedbacks(fbRes.feedbacks.map(f => ({
-            id: f.id,
-            eventId: f.event_id,
-            userId: f.user_id,
-            userName: f.user_name || 'Attendee',
-            rating: f.rating,
-            comment: f.comment,
-            createdAt: f.created_at,
-          })));
-        }
-      }
-    } finally {
-      setIsSubmittingFeedback(false);
-    }
-  };
+  // Formatted date string in WAT: e.g. "28 October 2026"
+  const formattedDayMonthYear = start.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  // Formatted time string in WAT: e.g. "10:00 AM WAT"
+  const formattedTimeWAT = start.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }) + ' WAT';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-        <Link to="/" className="hover:text-royal">Home</Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <Link to="/explore" className="hover:text-royal">Events</Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-slate-800 truncate max-w-xs">{event.title}</span>
-      </div>
+    <div className="bg-slate-50 dark:bg-[#070D1E] min-h-screen">
+      
+      {/* =========================================================================
+          MOBILE SCREEN VIEW (MATCHING IMAGE 5 EXACTLY)
+          Visible on small screens (< 768px: md:hidden)
+          ========================================================================= */}
+      <div className="md:hidden flex flex-col min-h-screen pb-24">
+        {/* Full-width Hero Banner Image */}
+        <div className="relative w-full aspect-[4/3] bg-slate-900 overflow-hidden">
+          <img
+            src={event.bannerUrl || 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1200'}
+            alt={event.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
 
-      {/* Main Grid: Left Event Details (8 cols), Right Action Card (4 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column (8 cols) */}
-        <div className="lg:col-span-8 space-y-8">
-          {/* Banner Container */}
-          <div className="relative rounded-3xl overflow-hidden shadow-lg border border-slate-200/90 bg-slate-900 aspect-video max-h-[460px]">
-            <img
-              src={event.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200'}
-              alt={event.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
+          {/* Floating Back Button Top Left */}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+            className="w-10 h-10 rounded-full bg-white text-slate-900 shadow-xl flex items-center justify-center absolute top-4 left-4 z-20 hover:bg-slate-100 transition-transform active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-            {/* Badges on Banner */}
-            <div className="absolute top-4 left-4 flex items-center gap-2">
-              <span
-                className="px-3 py-1 rounded-full text-xs font-bold text-white shadow-md backdrop-blur-md"
-                style={{ backgroundColor: event.categoryColor || '#1E40AF' }}
-              >
-                {event.categoryName || 'Event'}
-              </span>
-              <span className="px-3 py-1 rounded-full text-xs font-bold text-slate-900 bg-white/90 backdrop-blur-md shadow-xs">
-                {event.format} Event
-              </span>
-            </div>
+          {/* Floating Bookmark Button Top Right */}
+          <button
+            type="button"
+            onClick={handleBookmark}
+            aria-label="Bookmark event"
+            className="w-10 h-10 rounded-full bg-white text-slate-900 shadow-xl flex items-center justify-center absolute top-4 right-4 z-20 hover:bg-slate-100 transition-transform active:scale-95"
+          >
+            <BookmarkIcon className={`w-5 h-5 ${isBookmarked ? 'fill-[#0B2E81] text-[#0B2E81]' : ''}`} />
+          </button>
+        </div>
 
-            {/* Status bottom badge */}
-            <div className="absolute bottom-4 left-4">
-              {isCancelled ? (
-                <span className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-rose-600 text-white flex items-center gap-1.5 shadow-md">
-                  <AlertCircle className="w-4 h-4" /> EVENT CANCELLED
-                </span>
-              ) : isHappeningNow ? (
-                <span className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-white flex items-center gap-2 animate-pulse shadow-md">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
-                  HAPPENING NOW ON CAMPUS
-                </span>
-              ) : isCompleted ? (
-                <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300">
-                  Event Concluded
-                </span>
-              ) : (
-                <span className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-royal text-white shadow-md">
-                  Upcoming Event
-                </span>
-              )}
-            </div>
+        {/* Overlapping Bottom Sheet Card */}
+        <div className="-mt-6 rounded-t-3xl bg-white dark:bg-[#111A33] px-5 pt-6 pb-6 shadow-2xl relative z-10 space-y-5 flex-1">
+          {/* Category Pill with Icon */}
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-300 font-bold text-xs tracking-wide">
+              <Laptop className="w-3.5 h-3.5" />
+              <span>{event.categoryName || 'Technology'}</span>
+            </span>
           </div>
 
-          {/* Event Title & Metadata */}
-          <div className="space-y-4">
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
-              {event.title}
-            </h1>
+          {/* Large Bold Event Title */}
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+            {event.title}
+          </h1>
 
-            {/* Date, Time, Venue quick cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50 dark:bg-navy-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-start gap-3">
-                <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-950 text-royal dark:text-turquoise shrink-0">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Date & Schedule
-                  </span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-                    {start.toLocaleDateString('en-GB', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </p>
-                  <p className="text-xs text-royal dark:text-turquoise font-semibold mt-0.5">
-                    {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} WAT (UTC+1)
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 dark:bg-navy-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-start gap-3">
-                <div className="p-2.5 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal dark:text-teal-400 shrink-0">
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Venue & Location
-                  </span>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-                    {event.venueName || (event.format === 'ONLINE' ? 'Virtual Meeting' : 'Campus Main Auditorium')}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {event.campusArea || 'Campus Grounds'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Event Description Section */}
-          <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">About This Event</h2>
-            <div className="prose prose-slate max-w-none text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-line">
-              {event.description}
-            </div>
-          </div>
-
-          {/* Location & Directions Detail Card */}
-          <div className="bg-white dark:bg-navy-card rounded-3xl p-6 border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Compass className="w-5 h-5 text-royal dark:text-turquoise" />
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Location & Campus Directions</h3>
-              </div>
-              <button
-                onClick={() => setMapOpen(true)}
-                className="text-xs font-bold text-royal dark:text-turquoise hover:underline flex items-center gap-1"
-              >
-                <span>Interactive Map & GPS</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1 text-slate-600 dark:text-slate-300">
-                <p><strong>Building/Hall:</strong> {event.buildingHall || 'Central Hall'}</p>
-                <p><strong>Room / Stage:</strong> {event.roomNumber || 'Main Stage / Open Seating'}</p>
-                <p><strong>Campus Area:</strong> {event.campusArea || 'Main Campus, Keffi'}</p>
-              </div>
-              <div className="space-y-1 text-slate-600 dark:text-slate-300">
-                <p><strong>Address:</strong> {event.address || 'Along Keffi-Akwanga Expressway, Keffi'}</p>
-                {event.landmark && <p className="text-teal font-semibold"><strong>Landmark:</strong> {event.landmark}</p>}
-                {event.latitude && event.longitude && (
-                  <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                    GPS Coordinates: {event.latitude.toFixed(4)}°N, {event.longitude.toFixed(4)}°E
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Online Join Link Card (Restricted to registered participants) */}
-            {(event.format === 'ONLINE' || event.format === 'HYBRID') && (
-              <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-slate-800/80 border border-blue-200/70 dark:border-slate-700 space-y-2 mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-royal dark:text-turquoise font-bold text-xs">
-                    <Globe className="w-4 h-4 text-turquoise" />
-                    <span>Virtual Meeting Platform: {event.onlinePlatform || 'Online Room'}</span>
-                  </div>
-                  {event.restrictJoinLink && !isRegistered && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Registered Attendees Only
-                    </span>
-                  )}
-                </div>
-
-                {event.restrictJoinLink && !isRegistered ? (
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    The online join link will be unlocked immediately after you confirm your registration below.
-                  </p>
-                ) : (
-                  <div className="flex items-center gap-3 pt-1">
-                    <a
-                      href={event.onlineJoinLink || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-royal text-white hover:bg-royal-hover shadow-xs"
-                    >
-                      <span>Join Live Meeting Room</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">{event.onlineJoinLink}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Organizer Card */}
-          <div className="bg-slate-50 dark:bg-navy-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-royal to-teal text-white flex items-center justify-center font-black text-lg shadow-sm">
-                {event.organizerName.charAt(0)}
+          {/* 3 Rounded Metadata Rows Matching Image 5 */}
+          <div className="space-y-3 pt-1">
+            {/* Row 1: Calendar Date & Time */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-[#0B132B] flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
+                <CalendarIcon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Event Organizer
-                </span>
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm">{event.organizerName}</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{event.organizerContact}</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                  {formattedDayMonthYear}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {formattedTimeWAT}
+                </p>
               </div>
             </div>
-            <div className="text-xs text-slate-400 font-medium">
-              Target Audience: <strong className="text-slate-700 dark:text-slate-300">{event.targetAudience.replace('_', ' ')}</strong>
+
+            {/* Row 2: Location & Venue */}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-[#0B132B] flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
+                <MapPin className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                  {event.venueName || 'Main Campus, Keffi'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {event.campusArea || 'Nasarawa State University, Keffi (NSUK)'}
+                </p>
+              </div>
+            </div>
+
+            {/* Row 3: Organiser */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-[#0B132B] flex items-center justify-center text-slate-700 dark:text-slate-300 shrink-0">
+                  <Users className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Organised by
+                  </p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">
+                    {event.organizerName || 'Computing Society'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
           </div>
 
-          {/* Community Feedback & Reviews Section */}
-          <div className="space-y-4 pt-4 border-t border-slate-200">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-royal" />
-              <h3 className="text-lg font-bold text-slate-900">Attendee Feedback & Ratings</h3>
+          {/* About this event Section */}
+          <div className="pt-3 space-y-2">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              About this event
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+              {event.description}
+            </p>
+          </div>
+
+          {/* Capacity Progress Box Matching Image 5 */}
+          <div className="bg-slate-50 dark:bg-[#0B132B] border border-slate-200/70 dark:border-navy-light/40 rounded-2xl p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-600 flex items-center justify-center shrink-0">
+                  <Users className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {registered} of {capacity} places reserved
+                </span>
+              </div>
+              <span className="text-xs font-bold text-teal-600 font-mono">
+                {percentReserved}%
+              </span>
             </div>
 
-            {/* Feedback Submission Form */}
-            {currentUser && isRegistered && !feedbackSubmitted && (
-              <form onSubmit={handleFeedbackSubmit} className="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
-                <p className="text-xs font-bold text-slate-700">Submit Your Event Review:</p>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setRating(s)}
-                      className={`p-1 ${s <= rating ? 'text-amber-400' : 'text-slate-300'}`}
-                    >
-                      <Star className="w-5 h-5 fill-current" />
-                    </button>
-                  ))}
-                  <span className="text-xs font-semibold text-slate-500 ml-2">{rating}/5 Stars</span>
-                </div>
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Share your thoughts on the speakers, logistics, venue, or presentation..."
-                  className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-royal"
-                  rows={2}
-                  required
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-royal text-white hover:bg-royal-hover"
-                >
-                  Submit Feedback
-                </button>
-              </form>
-            )}
-
-            {/* Feedback List */}
-            <div className="space-y-3">
-              {feedbacks.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No feedback submitted yet for this event.</p>
-              ) : (
-                feedbacks.map((fb) => (
-                  <div key={fb.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 text-xs">{fb.userName}</span>
-                      <div className="flex text-amber-400">
-                        {Array.from({ length: fb.rating }).map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                        ))}
-                      </div>
-                    </div>
-                    {fb.comment && <p className="text-xs text-slate-600">{fb.comment}</p>}
-                    <span className="text-[10px] text-slate-400 block pt-1">
-                      {new Date(fb.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))
-              )}
+            {/* Horizontal Teal Progress Bar */}
+            <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+              <div 
+                className="h-full rounded-full bg-teal-500 transition-all duration-500"
+                style={{ width: `${percentReserved}%` }}
+              />
             </div>
           </div>
         </div>
 
-        {/* Right Sticky Column: Registration & Action Box (4 cols) */}
-        <div className="lg:col-span-4 sticky top-28 space-y-4">
-          <div className="bg-white dark:bg-navy-card rounded-3xl p-6 border border-slate-200/90 dark:border-slate-800 shadow-xl space-y-5 transition-colors duration-200">
-            {/* Top Seating & Status Indicators */}
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
-                Admission
-              </span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {event.requiresRegistration ? 'Free Registration' : 'Open Admission'}
+        {/* Fixed Sticky Bottom Register Button on Mobile Matching Image 5 */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 dark:bg-[#111A33]/95 backdrop-blur-md border-t border-slate-100 dark:border-navy-light/40 z-30">
+          {isRegistered ? (
+            <button
+              onClick={() => setTicketModalOpen(true)}
+              className="w-full py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-xl flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Pass Confirmed &bull; View Ticket</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleRegister}
+              disabled={isRegistering || isFull}
+              className="w-full py-3.5 px-6 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-sm shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+            >
+              <span>{isRegistering ? 'Securing seat...' : isFull ? 'Capacity Full' : 'Register for free'}</span>
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </button>
+          )}
+        </div>
+      </div>
+
+
+      {/* =========================================================================
+          DESKTOP SCREEN VIEW
+          Visible on larger screens (>= 768px: hidden md:block)
+          ========================================================================= */}
+      <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+          <Link to="/" className="hover:text-royal">Home</Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <Link to="/explore" className="hover:text-royal">Events</Link>
+          <ChevronRight className="w-3.5 h-3.5" />
+          <span className="text-slate-800 dark:text-white truncate max-w-xs">{event.title}</span>
+        </div>
+
+        {/* 2-Column Desktop Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column (8 cols) */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Banner Container */}
+            <div className="relative rounded-3xl overflow-hidden shadow-lg border border-slate-200/90 dark:border-navy-light/40 bg-slate-900 aspect-video max-h-[460px]">
+              <img
+                src={event.bannerUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200'}
+                alt={event.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30" />
+
+              {/* Badges on Banner */}
+              <div className="absolute top-4 left-4 flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold text-white shadow-md bg-[#0B2E81]">
+                  {event.categoryName || 'Technology'}
                 </span>
-                {isBookmarked && (
-                  <span className="text-[11px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-full">
-                    Saved
-                  </span>
-                )}
+                <span className="px-3 py-1 rounded-full text-xs font-bold text-slate-900 bg-white/90 shadow-xs">
+                  {event.format} Event
+                </span>
               </div>
             </div>
 
-            {/* Capacity Meter */}
-            {capacity && (
+            {/* Event Title & Metadata */}
+            <div className="space-y-4">
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                {event.title}
+              </h1>
+
+              {/* Date, Time, Venue quick cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-[#111A33] p-4 rounded-2xl border border-slate-200/80 dark:border-navy-light/40 flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950 text-[#0B2E81] dark:text-turquoise shrink-0">
+                    <CalendarIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Date & Schedule
+                    </span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                      {formattedDayMonthYear}
+                    </p>
+                    <p className="text-xs text-[#0B2E81] dark:text-turquoise font-semibold mt-0.5">
+                      {formattedTimeWAT}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-[#111A33] p-4 rounded-2xl border border-slate-200/80 dark:border-navy-light/40 flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400 shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Venue & Location
+                    </span>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                      {event.venueName || 'Main Campus, Keffi'}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {event.campusArea || 'Nasarawa State University, Keffi (NSUK)'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Description Section */}
+            <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-navy-light/40">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">About This Event</h2>
+              <div className="prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-line">
+                {event.description}
+              </div>
+            </div>
+
+            {/* Organizer Card */}
+            <div className="bg-white dark:bg-[#111A33] p-6 rounded-3xl border border-slate-200/80 dark:border-navy-light/40 flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#0B2E81] text-white flex items-center justify-center font-black text-lg shadow-sm">
+                  {event.organizerName.charAt(0)}
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Organised by
+                  </span>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">{event.organizerName}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{event.organizerContact}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMapOpen(true)}
+                className="text-xs font-bold text-[#0B2E81] dark:text-turquoise hover:underline flex items-center gap-1"
+              >
+                <Compass className="w-4 h-4" />
+                <span>View Campus GPS & Map</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Action Column (4 cols) */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white dark:bg-[#111A33] rounded-3xl p-6 border border-slate-200/90 dark:border-navy-light/40 shadow-xl space-y-6 sticky top-24">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                  Admission
+                </span>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white">
+                    Free Registration
+                  </span>
+                  {isBookmarked && (
+                    <span className="text-[11px] font-bold text-[#0B2E81] bg-blue-50 dark:bg-royal/30 px-2.5 py-1 rounded-full">
+                      Saved
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Capacity Meter */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  <span>Capacity Filled:</span>
-                  <strong className="text-slate-900 dark:text-white">{registered} / {capacity} seats</strong>
+                  <span>Reserved:</span>
+                  <strong className="text-slate-900 dark:text-white">{registered} / {capacity} places</strong>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      isFull ? 'bg-rose-500' : 'bg-teal'
-                    }`}
-                    style={{ width: `${Math.min(100, (registered / capacity) * 100)}%` }}
+                    className="h-full rounded-full bg-teal-500 transition-all duration-500"
+                    style={{ width: `${percentReserved}%` }}
                   />
                 </div>
-                {isFull && (
-                  <p className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> Full Seating Capacity Reached
-                  </p>
-                )}
               </div>
-            )}
 
-            {/* Error notice */}
-            {actionError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{actionError}</span>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              {isRegistered ? (
-                <div className="space-y-2">
-                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center text-xs text-emerald-800 font-bold space-y-1">
-                    <div className="flex items-center justify-center gap-1 text-emerald-700">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Registration Confirmed</span>
-                    </div>
-                    <p className="font-mono text-emerald-900 text-sm">Pass Ref: {currentRegistration.referenceCode}</p>
-                  </div>
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                {isRegistered ? (
                   <button
                     onClick={() => setTicketModalOpen(true)}
-                    className="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white shadow-md flex items-center justify-center gap-2"
+                    className="w-full py-3.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-2"
                   >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>View Digital Pass & QR</span>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Pass Confirmed &bull; View Ticket</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRegister}
+                    disabled={isRegistering || isFull}
+                    className="w-full py-3.5 rounded-xl font-bold text-sm bg-[#0B2E81] hover:bg-blue-900 text-white shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-75"
+                  >
+                    <span>{isRegistering ? 'Securing seat...' : isFull ? 'Capacity Full' : 'Register for free'}</span>
+                    <ArrowLeft className="w-4 h-4 rotate-180" />
+                  </button>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={handleBookmark}
+                    className={`py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      isBookmarked 
+                        ? 'border-blue-300 text-[#0B2E81] bg-blue-50' 
+                        : 'border-slate-200 dark:border-navy-light/60 text-slate-700 dark:text-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <BookmarkIcon className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
+                    <span>{isBookmarked ? 'Saved' : 'Save Event'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleShare}
+                    className="py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>{copiedLink ? 'Copied Link!' : 'Share Event'}</span>
                   </button>
                 </div>
-              ) : isCancelled ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-slate-100 text-slate-400 cursor-not-allowed"
-                >
-                  Event Cancelled
-                </button>
-              ) : isCompleted ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-slate-100 text-slate-400 cursor-not-allowed"
-                >
-                  Registration Closed
-                </button>
-              ) : isFull ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-slate-100 text-slate-400 cursor-not-allowed"
-                >
-                  Capacity Reached
-                </button>
-              ) : isDeadlinePassed ? (
-                <button
-                  disabled
-                  className="w-full py-3 rounded-xl font-bold text-sm bg-slate-100 text-slate-400 cursor-not-allowed"
-                >
-                  Deadline Passed
-                </button>
-              ) : (
-                <button
-                  onClick={handleRegister}
-                  disabled={isRegistering}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white shadow-lg shadow-royal/20 transition-all flex items-center justify-center gap-2 disabled:opacity-75"
-                >
-                  {isRegistering ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Securing Reservation...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Register for Event</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              )}
-
-              {/* Bookmark & Share secondary buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  onClick={handleBookmark}
-                  className={`py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                    isBookmarked 
-                      ? 'border-rose-300 text-rose-600 bg-rose-50' 
-                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <BookmarkIcon className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
-                  <span>{isBookmarked ? 'Saved' : 'Save Event'}</span>
-                </button>
-
-                <button
-                  onClick={handleShare}
-                  className="py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>{copiedLink ? 'Copied Link!' : 'Share Event'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Registration perks */}
-            <div className="pt-4 border-t border-slate-100 text-xs text-slate-500 space-y-2">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-teal shrink-0" />
-                <span>Instant email confirmation with reference pass</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-teal shrink-0" />
-                <span>Automated 24h & 1h start reminders</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-teal shrink-0" />
-                <span>Direct alerts if venue or schedule changes</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Interactive Map Modal */}
-      <MapPreviewModal
-        event={event}
-        isOpen={mapOpen}
-        onClose={() => setMapOpen(false)}
-      />
-
-      {/* Digital Pass Modal */}
-      {currentRegistration && (
-        <DigitalTicketModal
-          registration={currentRegistration}
+      {/* Map Preview Modal */}
+      {mapOpen && (
+        <MapPreviewModal
+          isOpen={mapOpen}
+          onClose={() => setMapOpen(false)}
           event={event}
+        />
+      )}
+
+      {/* Digital Ticket Modal */}
+      {ticketModalOpen && currentRegistration && (
+        <DigitalTicketModal
           isOpen={ticketModalOpen}
           onClose={() => setTicketModalOpen(false)}
+          registration={currentRegistration}
+          event={event}
         />
       )}
     </div>
   );
 };
+
 export default EventDetailsPage;

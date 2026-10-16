@@ -46,7 +46,7 @@ export const NotificationCenterPage: React.FC = () => {
             Email Campaign & Dispatch Hub
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Compose and dispatch automated emails to platform users' actual inboxes via Resend & MailerLite.
+            Compose and dispatch automated emails to platform users' actual emails via Resend.
           </p>
         </div>
 

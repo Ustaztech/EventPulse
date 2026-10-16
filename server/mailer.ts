@@ -22,15 +22,16 @@ export interface MailResult {
 }
 
 export async function sendTransactionalEmail(payload: MailPayload): Promise<MailResult> {
-  const provider = (process.env.EMAIL_PROVIDER || 'sandbox').toLowerCase();
-  const resendApiKey = process.env.RESEND_API_KEY || '';
-  const senderEmail = process.env.SMTP_FROM_EMAIL || 'onboarding@resend.dev';
-  const senderName = process.env.SMTP_FROM_NAME || 'NSUK EventPulse';
+  const provider = (process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
+  // Read Resend API Key from EVENTPULSE_MAILS_API_KEY (Vercel) or fallback to RESEND_API_KEY
+  const resendApiKey = process.env.EVENTPULSE_MAILS_API_KEY || process.env.RESEND_API_KEY || '';
+  const senderEmail = process.env.SMTP_FROM_EMAIL || 'support@eventpulse.com.ng';
+  const senderName = process.env.SMTP_FROM_NAME || 'EventPulse';
 
   const cleanText = payload.bodyText || payload.bodyHtml.replace(/<[^>]*>?/gm, '').trim();
 
   // 1. Live Resend Provider
-  if (provider === 'resend' || (resendApiKey && resendApiKey.trim().length > 0)) {
+  if (resendApiKey && resendApiKey.trim().length > 0) {
     try {
       const fromAddress = senderEmail.includes('@')
         ? `${senderName} <${senderEmail}>`

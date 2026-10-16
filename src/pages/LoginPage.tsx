@@ -244,7 +244,7 @@ export const LoginPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
+                className="w-full py-3.5 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-sm shadow-lg shadow-blue-900/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
@@ -253,25 +253,26 @@ export const LoginPage: React.FC = () => {
                   </span>
                 ) : (
                   <>
-                    <span>Sign In</span>
+                    <span>Sign in</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
-            </form>
 
-            {/* Bottom Register Redirect */}
-            <div className="pt-2 text-center text-xs text-slate-600 dark:text-slate-400">
-              Don't have an account?{' '}
-              <Link to="/auth/register" className="font-bold text-blue-600 dark:text-teal-300 hover:underline">
+              {/* Divider 'or' */}
+              <div className="relative py-2 flex items-center justify-center">
+                <div className="border-t border-slate-200 dark:border-navy-light/40 w-full" />
+                <span className="bg-white dark:bg-[#111A33] px-3 text-xs text-slate-400 absolute">or</span>
+              </div>
+
+              {/* Create account button */}
+              <Link 
+                to="/auth/register" 
+                className="w-full py-3 rounded-xl border border-slate-200 dark:border-navy-light/60 text-center font-bold text-sm text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-navy-light/20 block transition-all"
+              >
                 Create account
               </Link>
-            </div>
-
-            {/* Platform Help Note */}
-            <p className="text-[11px] text-center text-slate-400 pt-2 border-t border-slate-100 dark:border-navy-light/40">
-              EventPulse &bull; Role-based authentication &bull; Support: <span className="font-semibold text-slate-600 dark:text-slate-300">support@eventpulse.com.ng</span>
-            </p>
+            </form>
 
           </div>
         </div>

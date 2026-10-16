@@ -23,7 +23,7 @@ interface GmailMailingSystemProps {
 
 /**
  * Re-export EmailBroadcastHub as GmailMailingSystem for clean backward compatibility.
- * Provides the Resend & MailerLite email campaign composer and automated notification engine.
+ * Provides the Resend email campaign composer and automated notification engine.
  */
 export const GmailMailingSystem: React.FC<GmailMailingSystemProps> = () => {
   return <EmailBroadcastHub initialTab="compose" />;

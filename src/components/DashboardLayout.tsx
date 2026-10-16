@@ -35,6 +35,7 @@ export interface DashboardNavItem {
 interface DashboardLayoutProps {
   title: string;
   subtitle: string;
+  dateSubtitle?: string;
   badgeText: string;
   badgeColor?: 'royal' | 'teal' | 'purple';
   activeTab: string;
@@ -42,12 +43,14 @@ interface DashboardLayoutProps {
   navItems: DashboardNavItem[];
   quickStats?: Array<{ label: string; value: number | string }>;
   headerActions?: React.ReactNode;
+  headerRightAction?: React.ReactNode;
   children: React.ReactNode;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   title,
   subtitle,
+  dateSubtitle,
   badgeText,
   badgeColor = 'royal',
   activeTab,
@@ -55,6 +58,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   navItems,
   quickStats = [],
   headerActions,
+  headerRightAction,
   children,
 }) => {
   const { currentUser, unreadCount, logout } = useAuth();
@@ -382,9 +386,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   </span>
                   <span className="text-xs text-slate-400">&bull; EventPulse Campus Hub</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                  {title}
-                </h1>
+                <div className="flex flex-wrap items-baseline gap-2.5">
+                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {title}
+                  </h1>
+                  {dateSubtitle && (
+                    <span className="text-xs font-bold text-slate-400 font-mono">
+                      {dateSubtitle}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
                   {subtitle}
                 </p>
@@ -392,6 +403,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
               {/* Right Side Header Tools matching Image 2 */}
               <div className="flex items-center gap-3 shrink-0">
+                {headerRightAction}
                 {headerActions}
 
                 {/* Notifications Bell */}

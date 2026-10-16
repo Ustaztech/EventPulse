@@ -314,7 +314,7 @@ export const OrganizerDashboard: React.FC = () => {
     },
     {
       id: 'mail',
-      label: 'Email Hub (Resend / MailerLite)',
+      label: 'Email Dispatcher (Resend)',
       icon: Mail,
       badge: 'Live',
       badgeVariant: 'teal',
@@ -1106,7 +1106,7 @@ export const OrganizerDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 5: Email Broadcast & Campaign Hub (Resend / MailerLite) */}
+      {/* Tab 5: Email Dispatcher & Campaign Hub (Resend) */}
       {activeTab === 'mail' && (
         <EmailBroadcastHub initialTab="compose" />
       )}

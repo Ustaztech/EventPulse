@@ -11,6 +11,7 @@ import {
   resetRateLimit 
 } from './auth';
 import { scheduler } from './scheduler';
+import { sendTransactionalEmail } from './mailer';
 
 // Helper to parse JSON body
 function parseBody(req: IncomingMessage): Promise<any> {
@@ -549,6 +550,43 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         status: newStatus,
       });
 
+      // If published directly, trigger automatic notification to campus community
+      if (newStatus === 'PUBLISHED') {
+        const allUsers = serverDb.getAllUsers();
+        for (const u of allUsers) {
+          serverDb.createInAppNotification({
+            userId: u.id,
+            title: `New Event: ${createdEvent.title}`,
+            message: `"${createdEvent.title}" is now open for registration! Venue: ${createdEvent.venue_name || 'Campus Main Hall'}.`,
+            type: 'NEW_EVENT_ANNOUNCEMENT',
+            eventId: createdEvent.id,
+          });
+
+          serverDb.enqueueOutboxJob({
+            recipientEmail: u.email,
+            recipientName: u.name,
+            subject: `New Event: ${createdEvent.title} on EventPulse`,
+            bodyHtml: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #0B2E81; margin-top: 0;">New Campus Event Announced</h2>
+                <p>Hello ${u.name},</p>
+                <p><strong>${createdEvent.title}</strong> is now open for reservations on EventPulse.</p>
+                <div style="background: #f8fafc; border-left: 4px solid #0B2E81; padding: 12px; margin: 16px 0;">
+                  <p style="margin: 4px 0;"><strong>Date:</strong> ${new Date(createdEvent.start_time).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })} WAT</p>
+                  <p style="margin: 4px 0;"><strong>Venue:</strong> ${createdEvent.venue_name || 'Campus Main Hall'}</p>
+                </div>
+                <p style="font-size: 12px; color: #64748b;">EventPulse Campus Events &bull; support@eventpulse.com.ng</p>
+              </div>
+            `,
+            bodyText: `New event: ${createdEvent.title} is now open for registration. Venue: ${createdEvent.venue_name}. Visit EventPulse to secure your seat.`,
+            notificationType: 'NEW_EVENT_ANNOUNCEMENT',
+            eventId: createdEvent.id,
+            userId: u.id,
+            idempotencyKey: `new-evt-${createdEvent.id}-${u.id}`,
+          });
+        }
+      }
+
       serverDb.logAudit(authUser.id, authUser.name, 'EVENT_CREATE', 'Event', createdEvent.id, `Created event proposal: ${createdEvent.title}`, clientIp);
 
       return sendJson(res, 201, { success: true, event: createdEvent });
@@ -661,6 +699,43 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         status,
         approval_feedback: feedback,
       });
+
+      // Admin approval triggers automatic event notifications to all users
+      if (status === 'PUBLISHED') {
+        const allUsers = serverDb.getAllUsers();
+        for (const u of allUsers) {
+          serverDb.createInAppNotification({
+            userId: u.id,
+            title: `New Event: ${event.title}`,
+            message: `"${event.title}" is now open for registration! Venue: ${event.venue_name || 'Campus Main Hall'}.`,
+            type: 'NEW_EVENT_ANNOUNCEMENT',
+            eventId: event.id,
+          });
+
+          serverDb.enqueueOutboxJob({
+            recipientEmail: u.email,
+            recipientName: u.name,
+            subject: `New Event: ${event.title} on EventPulse`,
+            bodyHtml: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <h2 style="color: #0B2E81; margin-top: 0;">New Campus Event Announced</h2>
+                <p>Hello ${u.name},</p>
+                <p><strong>${event.title}</strong> is now open for reservations on EventPulse.</p>
+                <div style="background: #f8fafc; border-left: 4px solid #0B2E81; padding: 12px; margin: 16px 0;">
+                  <p style="margin: 4px 0;"><strong>Date:</strong> ${new Date(event.start_time).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })} WAT</p>
+                  <p style="margin: 4px 0;"><strong>Venue:</strong> ${event.venue_name || 'Campus Main Hall'}</p>
+                </div>
+                <p style="font-size: 12px; color: #64748b;">EventPulse Campus Events &bull; support@eventpulse.com.ng</p>
+              </div>
+            `,
+            bodyText: `New event: ${event.title} is now open for registration. Venue: ${event.venue_name}. Visit EventPulse to secure your seat.`,
+            notificationType: 'NEW_EVENT_ANNOUNCEMENT',
+            eventId: event.id,
+            userId: u.id,
+            idempotencyKey: `new-evt-${event.id}-${u.id}`,
+          });
+        }
+      }
 
       // Cancellation triggers notices to participants
       if (status === 'CANCELLED') {
@@ -1139,6 +1214,92 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     if (pathname === '/api/venues' && method === 'GET') {
       const venues = serverDb.getVenues();
       return sendJson(res, 200, { venues });
+    }
+
+    // POST /api/mail/send (Direct transactional email via Resend)
+    if (pathname === '/api/mail/send' && method === 'POST') {
+      const authUser = getAuthUser(req);
+      if (!authUser) return sendJson(res, 401, { error: 'Unauthorized: Authentication required.' });
+
+      const body = await parseBody(req);
+      const { to, recipientName, subject, html, text, category } = body;
+
+      if (!to || !subject || !html) {
+        return sendJson(res, 400, { error: 'Recipient email, subject, and content are required.' });
+      }
+
+      const result = await sendTransactionalEmail({
+        to,
+        recipientName,
+        subject,
+        bodyHtml: html,
+        bodyText: text,
+        category: category || 'custom',
+      });
+
+      if (result.success) {
+        serverDb.logAudit(authUser.id, authUser.name, 'MAIL_DISPATCH', 'Email', result.providerMessageId || 'msg', `Sent email to ${to}: ${subject}`, clientIp);
+        return sendJson(res, 200, { success: true, messageId: result.providerMessageId, provider: result.provider });
+      } else {
+        return sendJson(res, 400, { success: false, error: result.error || 'Failed to dispatch email' });
+      }
+    }
+
+    // POST /api/mail/broadcast (Campaign dispatcher to users/attendees)
+    if (pathname === '/api/mail/broadcast' && method === 'POST') {
+      const authUser = getAuthUser(req);
+      if (!authUser || (authUser.role !== 'ADMIN' && authUser.role !== 'ORGANIZER')) {
+        return sendJson(res, 403, { error: 'Forbidden: Only administrators and organizers can broadcast emails.' });
+      }
+
+      const body = await parseBody(req);
+      const { targetAudience, subject, html, text, eventId, customEmails } = body;
+
+      if (!subject || !html) {
+        return sendJson(res, 400, { error: 'Subject and message body are required.' });
+      }
+
+      let recipients: { email: string; name: string }[] = [];
+      const allUsers = serverDb.getAllUsers();
+
+      if (targetAudience === 'ALL') {
+        recipients = allUsers.map(u => ({ email: u.email, name: u.name }));
+      } else if (targetAudience === 'STUDENTS') {
+        recipients = allUsers.filter(u => u.role === 'STUDENT' || u.role === 'STAFF').map(u => ({ email: u.email, name: u.name }));
+      } else if (targetAudience === 'ORGANIZERS') {
+        recipients = allUsers.filter(u => u.role === 'ORGANIZER').map(u => ({ email: u.email, name: u.name }));
+      } else if (targetAudience === 'EVENT_ATTENDEES' && eventId) {
+        const regs = serverDb.getRegistrationsByEventId(eventId).filter(r => r.status === 'CONFIRMED');
+        recipients = regs.map(r => ({ email: r.user_email!, name: r.user_name! }));
+      } else if (targetAudience === 'CUSTOM' && customEmails) {
+        recipients = String(customEmails)
+          .split(/[,;\n]/)
+          .map(e => e.trim())
+          .filter(e => e.includes('@'))
+          .map(e => ({ email: e, name: e.split('@')[0] }));
+      } else {
+        recipients = allUsers.map(u => ({ email: u.email, name: u.name }));
+      }
+
+      let sent = 0;
+      let failed = 0;
+
+      for (const r of recipients) {
+        const resMail = await sendTransactionalEmail({
+          to: r.email,
+          recipientName: r.name,
+          subject,
+          bodyHtml: html,
+          bodyText: text,
+          category: 'custom',
+        });
+        if (resMail.success) sent++;
+        else failed++;
+      }
+
+      serverDb.logAudit(authUser.id, authUser.name, 'MAIL_BROADCAST', 'EmailBroadcast', `${sent}_recipients`, `Broadcasted "${subject}" to ${sent} users`, clientIp);
+
+      return sendJson(res, 200, { success: true, total: recipients.length, sent, failed });
     }
 
     // POST or GET /api/cron/reminders or /api/cron/process-outbox (Scheduled Tick)

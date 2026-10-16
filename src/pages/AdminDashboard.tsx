@@ -222,7 +222,7 @@ export const AdminDashboard: React.FC = () => {
     },
     {
       id: 'outbox',
-      label: 'Email Outbox Hub',
+      label: 'Email Dispatcher (Resend)',
       icon: Mail,
       badge: outboxJobs.length,
       badgeVariant: 'teal',
@@ -676,9 +676,9 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Tab 7: Email Outbox Hub */}
+        {/* Tab 7: Email Dispatcher & Campaign Hub */}
         {activeTab === 'outbox' && (
-          <EmailBroadcastHub initialTab="logs" />
+          <EmailBroadcastHub initialTab="compose" />
         )}
 
         {/* Tab 8: Audit Logs */}

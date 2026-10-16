@@ -271,6 +271,20 @@ export const api = {
     return request<{ outbox: any[] }>('/api/admin/outbox');
   },
 
+  async sendMail(payload: { to: string; recipientName?: string; subject: string; html: string; text?: string; category?: string }) {
+    return request<{ success: boolean; messageId: string; provider: string }>('/api/mail/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async broadcastMail(payload: { targetAudience: string; subject: string; html: string; text?: string; eventId?: string; customEmails?: string }) {
+    return request<{ success: boolean; total: number; sent: number; failed: number }>('/api/mail/broadcast', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   async getAuditLogs() {
     return request<{ logs: any[] }>('/api/admin/audit-logs');
   },

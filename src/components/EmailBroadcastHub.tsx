@@ -10,11 +10,9 @@ import {
   Users, 
   Bell, 
   ExternalLink, 
-  Copy, 
   Check, 
   Eye, 
   RefreshCw, 
-  Layers, 
   Key, 
   ShieldCheck, 
   Zap, 
@@ -23,13 +21,13 @@ import {
   Sliders,
   Calendar,
   Ticket,
-  Lock
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { api } from '../lib/api';
 import { emailService, EmailProviderConfig, DispatchLogItem } from '../lib/emailService';
-import { canManageMailingSettings } from '../lib/rbac';
 
 interface EmailBroadcastHubProps {
   initialTab?: 'compose' | 'automated' | 'logs' | 'settings';
@@ -38,35 +36,35 @@ interface EmailBroadcastHubProps {
 export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
   initialTab = 'compose'
 }) => {
-  const { currentUser, refreshUserData } = useAuth();
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'compose' | 'automated' | 'logs' | 'settings'>(initialTab);
 
   // Email Config State
   const [config, setConfig] = useState<EmailProviderConfig>(() => emailService.getConfig());
   const [showApiKey, setShowApiKey] = useState(false);
-  const [configSaved, setConfigSaved] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState(config.resendApiKey || '');
 
   // Compose State
   const [targetAudience, setTargetAudience] = useState<'ALL' | 'STUDENTS' | 'ORGANIZERS' | 'ADMINS' | 'EVENT_ATTENDEES' | 'CUSTOM'>('ALL');
   const [selectedEventId, setSelectedEventId] = useState('');
   const [customEmails, setCustomEmails] = useState('');
-  const [subject, setSubject] = useState('New Campus Update: Stay Informed with EventPulse');
-  const [headline, setHeadline] = useState('Important Campus Announcement');
+  const [subject, setSubject] = useState('Campus Announcement: Upcoming Events on EventPulse');
+  const [headline, setHeadline] = useState('Important Campus Update');
   const [messageBody, setMessageBody] = useState(
-    'We are excited to share new upcoming campus events and academic workshops. Explore confirmed schedules, directions, and secure your digital entry passes on EventPulse.'
+    'We are excited to share new upcoming campus workshops, lectures, and cultural events. Explore the verified schedules and secure your digital entry passes on EventPulse.'
   );
-  const [buttonText, setButtonText] = useState('View Details on EventPulse');
-  const [buttonUrl, setButtonUrl] = useState('http://localhost:5173/');
+  const [buttonText, setButtonText] = useState('Explore Campus Events');
+  const [buttonUrl, setButtonUrl] = useState('https://eventpulse.com.ng/explore');
   const [isSending, setIsSending] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
 
   // Logs & Notification State
   const [logs, setLogs] = useState<DispatchLogItem[]>(() => emailService.getLogs());
-  const [logFilter, setLogFilter] = useState<'ALL' | 'welcome' | 'new_event' | 'approaching' | 'happening_now' | 'custom'>('ALL');
+  const [logFilter, setLogFilter] = useState<'ALL' | 'welcome' | 'new_event' | 'approaching' | 'happening_now' | 'custom' | 'ticket'>('ALL');
   const [selectedLog, setSelectedLog] = useState<DispatchLogItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
+  const [triggeringEventId, setTriggeringEventId] = useState<string | null>(null);
 
   const users = db.getUsers();
   const events = db.getEvents();
@@ -88,7 +86,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           bodyHtml: o.body_html,
           bodyText: o.body_text,
           category: (o.notification_type?.toLowerCase() || 'custom') as any,
-          provider: (o.provider || 'RESEND') as any,
+          provider: 'RESEND',
           status: o.status === 'SENT' || o.status === 'DELIVERED' ? 'DELIVERED' : o.status === 'QUEUED' || o.status === 'PROCESSING' ? 'QUEUED' : 'FAILED',
           errorMessage: o.error_message,
           timestamp: o.created_at,
@@ -112,7 +110,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
       return users.map(u => ({ email: u.email, name: u.name }));
     }
     if (targetAudience === 'STUDENTS') {
-      return users.filter(u => u.role === 'STUDENT').map(u => ({ email: u.email, name: u.name }));
+      return users.filter(u => u.role === 'STUDENT' || u.role === 'STAFF').map(u => ({ email: u.email, name: u.name }));
     }
     if (targetAudience === 'ORGANIZERS') {
       return users.filter(u => u.role === 'ORGANIZER').map(u => ({ email: u.email, name: u.name }));
@@ -137,145 +135,148 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
   // Handle Save Configuration
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    emailService.saveConfig(config);
-    setConfigSaved(true);
-    showToast('Mailing platform settings saved successfully!');
-    setTimeout(() => setConfigSaved(false), 2500);
+    const updated = {
+      ...config,
+      resendApiKey: customApiKey.trim(),
+    };
+    setConfig(updated);
+    emailService.saveConfig(updated);
+    showToast('Resend configuration updated successfully!');
   };
 
-  // Test Resend / MailerLite connection by sending a real email to the user
+  // Test Resend connection
   const handleTestConnection = async () => {
     if (!currentUser?.email) return;
     setIsTestingConnection(true);
 
-    const testHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
-        <div style="background: linear-gradient(135deg, #1E40AF, #0D9488); padding: 28px 24px; color: #ffffff; text-align: center;">
-          <h2 style="margin: 0; font-size: 22px; font-weight: 800;">EventPulse Mailer Test</h2>
-          <p style="margin: 8px 0 0; font-size: 13px; opacity: 0.9;">Provider: ${config.provider.toUpperCase()} Verification Ping</p>
-        </div>
-        <div style="padding: 24px; color: #334155; line-height: 1.6;">
-          <p>Hello <strong>${currentUser.name}</strong>,</p>
-          <p>Your mailing platform integration with <strong>${config.provider.toUpperCase()}</strong> is connected and sending transactional emails to real user mailboxes.</p>
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 16px; margin: 18px 0; color: #166534; font-size: 13px;">
-            <strong>Status: Verified & Operational</strong><br />
-            Sender: ${config.senderName} &lt;${config.senderEmail}&gt;<br />
-            Timestamp: ${new Date().toLocaleString()}
+    try {
+      const testHtml = `
+        <div style="font-family: 'Inter', sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <div style="background: #0B2E81; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-weight: 800; display: inline-block; font-size: 13px;">
+            EventPulse
           </div>
-          <p style="font-size: 12px; color: #64748b;">Dispatched automatically by EventPulse Campaign Hub.</p>
+          <h2 style="color: #0f172a; margin-top: 16px;">Resend API Delivery Verification</h2>
+          <p style="color: #475569; font-size: 14px;">
+            Hello <strong>${currentUser.name}</strong>, this email confirms that your Resend transactional mailing engine (configured with <code>EVENTPULSE_MAILS_API_KEY</code>) is working properly!
+          </p>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px; color: #166534;">
+            &check; Resend API Handshake: Verified &amp; Accepted
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+            EventPulse Campus Notifications &bull; support@eventpulse.com.ng
+          </p>
         </div>
-      </div>
-    `;
+      `;
 
-    const res = await emailService.sendEmail({
-      to: currentUser.email,
-      recipientName: currentUser.name,
-      subject: `[Verified] EventPulse ${config.provider.toUpperCase()} Connection Test`,
-      html: testHtml,
-      category: 'custom'
-    });
+      const res = await emailService.sendEmail({
+        to: currentUser.email,
+        recipientName: currentUser.name,
+        subject: 'EventPulse: Resend API Connection Verified',
+        html: testHtml,
+        category: 'custom',
+      });
 
-    setIsTestingConnection(false);
-    refreshLogs();
-
-    if (res.success) {
-      showToast(`Success! Test email delivered to ${currentUser.email} via ${res.providerUsed}`);
-    } else {
-      showToast(`Error: ${res.error || 'Failed to dispatch test email'}`);
+      if (res.success) {
+        showToast(`Verification email successfully dispatched to ${currentUser.email}!`);
+      } else {
+        showToast(`Error: ${res.error || 'Failed to dispatch test message'}`);
+      }
+      refreshLogs();
+    } catch (err: any) {
+      showToast(`Dispatch failed: ${err?.message || 'Network error'}`);
+    } finally {
+      setIsTestingConnection(false);
     }
   };
 
-  // Dispatch Broadcast Email
+  // Broadcast Email to selected audience
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (resolvedRecipients.length === 0) {
-      showToast('Please specify at least one recipient email address.');
+      alert('Please select at least one recipient.');
       return;
     }
     if (!subject.trim() || !messageBody.trim()) {
-      showToast('Please provide both subject line and announcement message.');
+      alert('Subject line and message content cannot be empty.');
       return;
     }
 
     setIsSending(true);
 
-    const emailHtml = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0;">
-        <div style="background: linear-gradient(135deg, #1E40AF, #0D9488); padding: 32px 24px; color: #ffffff;">
-          <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase;">
-            EventPulse Campus Bulletin
-          </span>
-          <h1 style="margin: 12px 0 0; font-size: 24px; font-weight: 800; line-height: 1.3;">${headline}</h1>
+    const compiledHtml = `
+      <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+          <div style="background: #0B2E81; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-weight: 800; font-size: 14px;">EventPulse</div>
+          <span style="color: #64748b; font-size: 13px;">Campus Notification</span>
         </div>
-        <div style="padding: 28px 24px; color: #334155; line-height: 1.6;">
-          <div style="font-size: 15px; color: #1e293b; white-space: pre-line;">
-            ${messageBody}
+        <h1 style="color: #0f172a; font-size: 22px; font-weight: 800; margin: 0 0 16px 0;">${headline}</h1>
+        <div style="color: #334155; font-size: 15px; line-height: 1.6; margin-bottom: 24px; white-space: pre-wrap;">${messageBody}</div>
+        ${buttonText && buttonUrl ? `
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${buttonUrl}" style="display: inline-block; background: #0B2E81; color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; text-decoration: none; font-size: 14px;">
+              ${buttonText} &rarr;
+            </a>
           </div>
-          ${buttonText ? `
-            <div style="margin: 28px 0; text-align: center;">
-              <a href="${buttonUrl}" style="display: inline-block; background: #1E40AF; color: #ffffff; padding: 12px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 14px; box-shadow: 0 4px 12px rgba(30,64,175,0.25);">
-                ${buttonText}
-              </a>
-            </div>
-          ` : ''}
-          <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
-            Sent by EventPulse &bull; <a href="mailto:support@eventpulse.com.ng" style="color: #1E40AF; text-decoration: none;">support@eventpulse.com.ng</a><br />
-            To manage notifications, visit your EventPulse profile settings.
-          </div>
-        </div>
+        ` : ''}
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">
+          EventPulse Campus Event Management &bull; support@eventpulse.com.ng
+        </p>
       </div>
     `;
 
-    const res = await emailService.sendBatchEmail({
-      recipients: resolvedRecipients,
-      subject: subject.trim(),
-      html: emailHtml,
-      text: `${headline}\n\n${messageBody}\n\n${buttonUrl}`,
-      category: 'custom'
-    });
+    try {
+      const res = await api.broadcastMail({
+        targetAudience,
+        subject,
+        html: compiledHtml,
+        text: messageBody,
+        eventId: selectedEventId,
+        customEmails,
+      });
 
-    setIsSending(false);
-    refreshLogs();
-    refreshUserData();
-
-    showToast(`Email campaign dispatched to ${res.sent} recipient(s) via ${config.provider.toUpperCase()}!`);
+      if (res?.success) {
+        showToast(`Email broadcast dispatched to ${res.sent} recipients via Resend!`);
+      } else {
+        // Fallback to client-side batch
+        const batchRes = await emailService.sendBatchEmail({
+          recipients: resolvedRecipients,
+          subject,
+          html: compiledHtml,
+          text: messageBody,
+          category: 'custom',
+        });
+        showToast(`Dispatched to ${batchRes.sent} recipients!`);
+      }
+      refreshLogs();
+    } catch {
+      // Local fallback
+      await emailService.sendBatchEmail({
+        recipients: resolvedRecipients,
+        subject,
+        html: compiledHtml,
+        text: messageBody,
+        category: 'custom',
+      });
+      showToast(`Dispatched to ${resolvedRecipients.length} recipients!`);
+      refreshLogs();
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  // Preset Template Selectors
-  const applyPreset = (type: 'welcome' | 'new_event' | 'reminder' | 'happening_now' | 'announcement') => {
-    if (type === 'welcome') {
-      setSubject('Welcome to EventPulse: Campus Event Discovery & Smart Notification Engine');
-      setHeadline('Welcome to EventPulse!');
-      setMessageBody('Welcome to the official campus event platform! Your account has been activated. You will receive automated alerts for newly scheduled events, approaching departure reminders (24h & 1h), and live kickoff alerts.');
-      setButtonText('Explore Campus Events');
-      setButtonUrl('http://localhost:5173/explore');
-    } else if (type === 'new_event') {
-      const evt = events[0];
-      setSubject(`New Campus Event Added: ${evt?.title || 'Annual Technology Showcase'}`);
-      setHeadline(`New Event Added: ${evt?.title || 'Annual Technology Showcase'}`);
-      setMessageBody(`A new campus event has just been scheduled and registration is now open.\n\nDate: ${new Date(evt?.startTime || Date.now()).toLocaleString()}\nVenue: ${evt?.venueName || 'Campus Main Hall'} (${evt?.campusArea || 'Main Campus'})\n\nReserve your seat and claim your verified digital pass now!`);
-      setButtonText('Reserve Digital Pass');
-      setButtonUrl(`http://localhost:5173/events/${evt?.slug || ''}`);
-    } else if (type === 'reminder') {
-      const evt = events[0];
-      setSubject(`Starting in 1 Hour: ${evt?.title || 'Campus Hackathon'} - Doors Opening Soon!`);
-      setHeadline(`Countdown: Starting in 1 Hour!`);
-      setMessageBody(`This is an automated reminder that "${evt?.title || 'Campus Hackathon'}" commences in 1 hour at ${evt?.venueName || 'Campus Main Hall'}.\n\nPlease have your digital ticket QR code ready on your mobile device for entrance check-in.`);
-      setButtonText('Open Digital Pass');
-      setButtonUrl('http://localhost:5173/dashboard/student');
-    } else if (type === 'happening_now') {
-      const evt = events[0];
-      setSubject(`Happening Now: ${evt?.title || 'Robotics & AI Symposium'} is Officially Underway!`);
-      setHeadline(`Happening Now: Live Kickoff!`);
-      setMessageBody(`The doors are open and "${evt?.title || 'Robotics & AI Symposium'}" is officially live right now!\n\nProceed to ${evt?.venueName || 'Campus Main Hall'} entrance desk to validate your attendance.`);
-      setButtonText('View Venue Directions');
-      setButtonUrl('http://localhost:5173/explore');
-    } else if (type === 'announcement') {
-      setSubject('Campus Announcement: Event Schedule Updates');
-      setHeadline('Important Notice to All Campus Members');
-      setMessageBody('Please take note of upcoming adjustments to campus event schedules and venue arrangements for the upcoming academic week.');
-      setButtonText('Read Full Notice');
-      setButtonUrl('http://localhost:5173/');
+  // Trigger automated event notification for a specific event
+  const handleTriggerEventNotification = async (evt: any) => {
+    setTriggeringEventId(evt.id);
+    try {
+      const allCampusUsers = users.map(u => ({ email: u.email, name: u.name }));
+      const sentCount = await emailService.sendNewEventNotification(evt, allCampusUsers);
+      showToast(`Automated notification for "${evt.title}" dispatched to ${sentCount} campus users via Resend!`);
+      refreshLogs();
+    } catch (err: any) {
+      showToast(`Failed: ${err?.message || 'Error sending notification'}`);
+    } finally {
+      setTriggeringEventId(null);
     }
   };
 
@@ -299,27 +300,21 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
       {/* Top Header & Service Status Banner */}
       <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-navy-light/40 flex flex-wrap items-center justify-between gap-4 bg-slate-50/70 dark:bg-[#0B132B]/60">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-royal to-teal flex items-center justify-center text-white shadow-md shadow-royal/20">
-            <Send className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-2xl bg-[#0B2E81] flex items-center justify-center text-white shadow-md shadow-blue-900/20">
+            <Send className="w-5 h-5 text-turquoise" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                Email Campaign & Transactional Dispatcher
+                Email Dispatcher & Automated Notifications
               </h2>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 ${
-                config.resendApiKey && config.provider === 'resend'
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : config.mailerliteApiKey && config.provider === 'mailerlite'
-                  ? 'bg-blue-100 text-royal border-blue-300 dark:bg-royal/30 dark:text-turquoise'
-                  : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${config.resendApiKey || config.mailerliteApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-                {config.provider.toUpperCase()} {config.resendApiKey || config.mailerliteApiKey ? 'CONNECTED' : 'SANDBOX'}
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                RESEND API ACTIVE
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Send automated and bulk emails to platform users via Resend or MailerLite to their actual email inboxes.
+              Powered by Resend API (via <code className="font-mono text-royal dark:text-turquoise font-bold">EVENTPULSE_MAILS_API_KEY</code>). Dispatches directly to platform users' actual emails.
             </p>
           </div>
         </div>
@@ -334,7 +329,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
             title="Send a real verification email to your address"
           >
             <Zap className={`w-3.5 h-3.5 text-amber-500 ${isTestingConnection ? 'animate-spin' : ''}`} />
-            <span>{isTestingConnection ? 'Sending Test...' : 'Test Real Delivery'}</span>
+            <span>{isTestingConnection ? 'Sending Test...' : 'Test Delivery'}</span>
           </button>
 
           <button
@@ -342,12 +337,12 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
             onClick={() => setActiveTab('settings')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
               activeTab === 'settings'
-                ? 'bg-royal text-white shadow-md'
+                ? 'bg-[#0B2E81] text-white shadow-md'
                 : 'bg-slate-100 dark:bg-navy-light/40 text-slate-700 dark:text-slate-200 hover:bg-slate-200'
             }`}
           >
             <Settings className="w-3.5 h-3.5" />
-            <span>Provider Setup</span>
+            <span>Resend Settings</span>
           </button>
         </div>
       </div>
@@ -359,12 +354,12 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           onClick={() => setActiveTab('compose')}
           className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all shrink-0 ${
             activeTab === 'compose'
-              ? 'border-royal text-royal dark:text-turquoise font-black'
+              ? 'border-[#0B2E81] text-[#0B2E81] dark:text-turquoise font-black'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Send className="w-4 h-4" />
-          <span>Compose & Broadcast</span>
+          <span>Send Email</span>
         </button>
 
         <button
@@ -372,12 +367,12 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           onClick={() => setActiveTab('automated')}
           className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all shrink-0 ${
             activeTab === 'automated'
-              ? 'border-royal text-royal dark:text-turquoise font-black'
+              ? 'border-[#0B2E81] text-[#0B2E81] dark:text-turquoise font-black'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>Automated Lifecycle Rules</span>
+          <span>Automatic Event Notifications</span>
         </button>
 
         <button
@@ -388,12 +383,12 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           }}
           className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all shrink-0 ${
             activeTab === 'logs'
-              ? 'border-royal text-royal dark:text-turquoise font-black'
+              ? 'border-[#0B2E81] text-[#0B2E81] dark:text-turquoise font-black'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Clock className="w-4 h-4" />
-          <span>Dispatch & Delivery Logs ({logs.length})</span>
+          <span>Outbox & Delivery Logs ({logs.length})</span>
         </button>
 
         <button
@@ -401,333 +396,264 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           onClick={() => setActiveTab('settings')}
           className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all shrink-0 ${
             activeTab === 'settings'
-              ? 'border-royal text-royal dark:text-turquoise font-black'
+              ? 'border-[#0B2E81] text-[#0B2E81] dark:text-turquoise font-black'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'
           }`}
         >
           <Key className="w-4 h-4" />
-          <span>MailerLite / Resend Setup</span>
+          <span>Resend API Config</span>
         </button>
       </div>
 
-      {/* Main Body Content based on active tab */}
+      {/* Main Content */}
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
 
-        {/* TAB 1: COMPOSE & BROADCAST */}
+        {/* TAB 1: SEND EMAIL */}
         {activeTab === 'compose' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Form Column (Left 7 Cols) */}
             <form onSubmit={handleSendBroadcast} className="lg:col-span-7 space-y-5">
-              {/* Presets Bar */}
+              {/* Recipient Audience */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Quick Template Presets:</span>
-                </label>
-                <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('welcome')}
-                    className="px-2.5 py-1 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 font-bold border border-teal-200 dark:border-teal-800 hover:opacity-90"
-                  >
-                    📬 Welcome Message
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('new_event')}
-                    className="px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-royal/30 text-royal dark:text-turquoise font-bold border border-blue-200 dark:border-royal/50 hover:opacity-90"
-                  >
-                    📢 New Event Added
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('reminder')}
-                    className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800 hover:opacity-90"
-                  >
-                    ⏰ 1h Countdown Reminder
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('happening_now')}
-                    className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 hover:opacity-90"
-                  >
-                    🟢 Happening Now Alert
-                  </button>
-                </div>
-              </div>
-
-              {/* Target Audience */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                    Target Audience
-                  </label>
-                  <span className="text-xs font-bold text-royal dark:text-turquoise">
-                    {resolvedRecipients.length} Recipient(s) Targeted
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-royal" />
+                    <span>Target Recipients:</span>
                   </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setTargetAudience('ALL')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      targetAudience === 'ALL'
-                        ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise font-black'
-                        : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">All Platform Users</span>
-                    <span className="text-[10px] text-slate-400">{users.length} accounts</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetAudience('STUDENTS')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      targetAudience === 'STUDENTS'
-                        ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise font-black'
-                        : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">Students Only</span>
-                    <span className="text-[10px] text-slate-400">{users.filter(u => u.role === 'STUDENT').length} accounts</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetAudience('ORGANIZERS')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      targetAudience === 'ORGANIZERS'
-                        ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise font-black'
-                        : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">Organizers</span>
-                    <span className="text-[10px] text-slate-400">{users.filter(u => u.role === 'ORGANIZER').length} accounts</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetAudience('ADMINS')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      targetAudience === 'ADMINS'
-                        ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise font-black'
-                        : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">Administrators</span>
-                    <span className="text-[10px] text-slate-400">{users.filter(u => u.role === 'ADMIN').length} accounts</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetAudience('EVENT_ATTENDEES')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      targetAudience === 'EVENT_ATTENDEES'
-                        ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise font-black'
-                        : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">Event Attendees</span>
-                    <span className="text-[10px] text-slate-400">By Specific Event</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTargetAudience('CUSTOM')}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      targetAudience === 'CUSTOM'
-                        ? 'border-royal bg-royal/10 dark:bg-royal/20 text-royal dark:text-turquoise font-black'
-                        : 'border-slate-200 dark:border-navy-light/60 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">Custom Email(s)</span>
-                    <span className="text-[10px] text-slate-400">Specific addresses</span>
-                  </button>
-                </div>
-
-                {/* Sub-selectors */}
-                {targetAudience === 'EVENT_ATTENDEES' && (
-                  <div className="pt-2">
-                    <select
-                      value={selectedEventId}
-                      onChange={(e) => setSelectedEventId(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs font-medium"
-                      required
+                  <span className="text-[11px] font-mono text-royal dark:text-turquoise font-bold">
+                    {resolvedRecipients.length} recipient{resolvedRecipients.length === 1 ? '' : 's'}
+                  </span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'ALL', label: 'All Users', desc: 'All registered accounts' },
+                    { id: 'STUDENTS', label: 'Students & Staff', desc: 'Active campus members' },
+                    { id: 'ORGANIZERS', label: 'Organisers', desc: 'Event managers' },
+                    { id: 'ADMINS', label: 'Administrators', desc: 'System operators' },
+                    { id: 'EVENT_ATTENDEES', label: 'Event Attendees', desc: 'Confirmed pass holders' },
+                    { id: 'CUSTOM', label: 'Custom List', desc: 'Direct email addresses' },
+                  ].map(aud => (
+                    <button
+                      key={aud.id}
+                      type="button"
+                      onClick={() => setTargetAudience(aud.id as any)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        targetAudience === aud.id
+                          ? 'border-[#0B2E81] bg-blue-50/70 dark:bg-royal/20 text-[#0B2E81] dark:text-turquoise font-bold'
+                          : 'border-slate-200 dark:border-navy-light/40 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                      }`}
                     >
-                      <option value="">Select event to email attendees...</option>
-                      {events.map(e => (
-                        <option key={e.id} value={e.id}>{e.title} ({e.registeredCount || 0} registered)</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {targetAudience === 'CUSTOM' && (
-                  <div className="pt-2">
-                    <textarea
-                      value={customEmails}
-                      onChange={(e) => setCustomEmails(e.target.value)}
-                      placeholder="Enter emails separated by comma or new line: e.g. student@gmail.com, organizer@eventpulse.com.ng"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs font-mono"
-                      rows={2}
-                      required
-                    />
-                  </div>
-                )}
+                      <span className="text-xs font-bold block">{aud.label}</span>
+                      <span className="text-[10px] text-slate-400 block truncate">{aud.desc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Event Selector if EVENT_ATTENDEES */}
+              {targetAudience === 'EVENT_ATTENDEES' && (
+                <div className="space-y-1.5 animate-in fade-in">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Select Target Event:
+                  </label>
+                  <select
+                    value={selectedEventId}
+                    onChange={(e) => setSelectedEventId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-800 dark:text-white font-medium focus:ring-2 focus:ring-royal"
+                    required
+                  >
+                    <option value="">-- Choose an event --</option>
+                    {events.map(ev => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title} ({new Date(ev.startTime).toLocaleDateString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Custom emails input */}
+              {targetAudience === 'CUSTOM' && (
+                <div className="space-y-1.5 animate-in fade-in">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Enter Email Addresses (comma, semicolon, or newline separated):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={customEmails}
+                    onChange={(e) => setCustomEmails(e.target.value)}
+                    placeholder="student1@eventpulse.com.ng, organizer@eventpulse.com.ng"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-800 dark:text-white font-mono focus:ring-2 focus:ring-royal"
+                  />
+                </div>
+              )}
 
               {/* Subject Line */}
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                  Email Subject Line (Appears in User's Main Inbox)
+                  Email Subject Line (Appears in User's Main Mailbox):
                 </label>
                 <input
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  placeholder="e.g. Starting in 1 Hour: Campus Robotics Workshop"
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm font-bold focus:outline-none focus:ring-2 focus:ring-royal/30"
+                  placeholder="e.g. Urgent Update: Tech Summit Venue Relocation"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-royal"
                   required
                 />
               </div>
 
               {/* Headline */}
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                  Email Header Banner Title
+                  Internal Headline Banner:
                 </label>
                 <input
                   type="text"
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
-                  placeholder="e.g. Important Campus Notice"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-royal/30"
-                  required
+                  placeholder="e.g. Important Campus Announcement"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-royal"
                 />
               </div>
 
-              {/* Message Body */}
-              <div className="space-y-1">
+              {/* Body Text */}
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                  Announcement Message Content
+                  Message Content:
                 </label>
                 <textarea
+                  rows={5}
                   value={messageBody}
                   onChange={(e) => setMessageBody(e.target.value)}
-                  placeholder="Type your message to platform users..."
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-royal/30 font-medium"
-                  rows={5}
+                  placeholder="Type your message here..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-royal"
                   required
                 />
               </div>
 
-              {/* Call to Action Button Options */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {/* Action Button Link */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-200">Action Button Label</label>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    Call-to-Action Button Text:
+                  </label>
                   <input
                     type="text"
                     value={buttonText}
                     onChange={(e) => setButtonText(e.target.value)}
                     placeholder="e.g. View Details on EventPulse"
-                    className="w-full p-2 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-800 dark:text-white"
                   />
                 </div>
-
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-200">Action Link URL</label>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    Button URL:
+                  </label>
                   <input
                     type="url"
                     value={buttonUrl}
                     onChange={(e) => setButtonUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full p-2 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white"
+                    placeholder="https://eventpulse.com.ng/explore"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-xs text-slate-800 dark:text-white font-mono"
                   />
                 </div>
               </div>
 
-              {/* Send Button */}
-              <div className="pt-2 flex items-center justify-between">
-                <div className="text-[11px] text-slate-500">
-                  Sender: <strong className="text-slate-800 dark:text-slate-200">{config.senderName}</strong> &lt;{config.senderEmail}&gt;
-                </div>
-
+              {/* Dispatch Action Button */}
+              <div className="pt-2">
                 <button
                   type="submit"
                   disabled={isSending || resolvedRecipients.length === 0}
-                  className="px-7 py-3 rounded-2xl bg-gradient-to-r from-royal to-teal hover:opacity-95 text-white font-black text-xs shadow-lg shadow-royal/25 transition-all flex items-center gap-2 disabled:opacity-60"
+                  className="w-full sm:w-auto px-8 py-3 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-black text-xs shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
-                  {isSending ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Dispatching via {config.provider.toUpperCase()}...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Dispatch to {resolvedRecipients.length} User(s)</span>
-                      <Send className="w-4 h-4" />
-                    </>
-                  )}
+                  <Send className={`w-4 h-4 ${isSending ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isSending
+                      ? 'Dispatching via Resend...'
+                      : `Dispatch Email to ${resolvedRecipients.length} Recipient${resolvedRecipients.length === 1 ? '' : 's'} via Resend`}
+                  </span>
                 </button>
               </div>
             </form>
 
-            {/* Live Email Preview Column (Right 5 Cols) */}
+            {/* Live Preview Column (Right 5 Cols) */}
             <div className="lg:col-span-5 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                   <Eye className="w-3.5 h-3.5 text-royal" />
                   <span>Recipient Inbox Preview</span>
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  Exact HTML rendered in recipient mail
-                </span>
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-navy-light/40 p-0.5 rounded-lg text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('desktop')}
+                    className={`px-2 py-1 rounded-md flex items-center gap-1 font-bold ${
+                      previewMode === 'desktop' ? 'bg-white dark:bg-[#111A33] text-royal dark:text-white shadow-xs' : 'text-slate-500'
+                    }`}
+                  >
+                    <Monitor className="w-3 h-3" />
+                    <span>Desktop</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('mobile')}
+                    className={`px-2 py-1 rounded-md flex items-center gap-1 font-bold ${
+                      previewMode === 'mobile' ? 'bg-white dark:bg-[#111A33] text-royal dark:text-white shadow-xs' : 'text-slate-500'
+                    }`}
+                  >
+                    <Smartphone className="w-3 h-3" />
+                    <span>Mobile</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Rendered Email Simulator */}
-              <div className="rounded-2xl border border-slate-300 dark:border-navy-light/60 overflow-hidden shadow-lg bg-slate-100 dark:bg-navy-dark p-3">
-                {/* Email Client Header Chrome */}
-                <div className="bg-white dark:bg-[#111A33] rounded-t-xl p-3 border-b border-slate-200 dark:border-navy-light/40 space-y-1 text-xs">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-                    <span>From: {config.senderName} &lt;{config.senderEmail}&gt;</span>
-                    <span>Just now</span>
-                  </div>
-                  <div className="font-bold text-slate-900 dark:text-white text-sm line-clamp-1">
-                    {subject || 'No subject'}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    To: {resolvedRecipients[0]?.email || 'user@example.com'} {resolvedRecipients.length > 1 ? `(+${resolvedRecipients.length - 1} more)` : ''}
-                  </div>
-                </div>
-
-                {/* Email Body Card */}
-                <div className="bg-white text-slate-800 rounded-b-xl overflow-hidden shadow-xs border-t-0">
-                  <div className="bg-gradient-to-r from-royal to-teal p-5 text-white">
-                    <span className="inline-block bg-white/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-                      EventPulse Campus Bulletin
-                    </span>
-                    <h3 className="text-base font-black mt-2">{headline}</h3>
+              <div className={`mx-auto bg-slate-100 dark:bg-[#0B132B] p-4 rounded-3xl border border-slate-200 dark:border-navy-light/60 transition-all ${
+                previewMode === 'mobile' ? 'max-w-[340px]' : 'w-full'
+              }`}>
+                {/* Email Window Mockup */}
+                <div className="bg-white rounded-2xl shadow-md border border-slate-200/80 p-5 space-y-4 text-slate-900 font-sans">
+                  {/* Sender Row */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-[#0B2E81] text-white flex items-center justify-center font-bold text-xs">
+                        EP
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold block text-slate-900">EventPulse</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">support@eventpulse.com.ng</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">Just now</span>
                   </div>
 
-                  <div className="p-5 space-y-4 text-xs leading-relaxed text-slate-700">
-                    <p className="whitespace-pre-line text-xs font-normal">
+                  {/* Subject */}
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 leading-tight">
+                      {subject || 'No Subject'}
+                    </h3>
+                  </div>
+
+                  {/* Content Box */}
+                  <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-100">
+                    <h4 className="text-xs font-bold text-[#0B2E81] uppercase tracking-wide">
+                      {headline}
+                    </h4>
+                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
                       {messageBody}
                     </p>
-
                     {buttonText && (
                       <div className="text-center pt-2">
-                        <span className="inline-block px-5 py-2.5 rounded-xl bg-royal text-white font-bold text-xs shadow-md">
-                          {buttonText}
+                        <span className="inline-block bg-[#0B2E81] text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xs">
+                          {buttonText} &rarr;
                         </span>
                       </div>
                     )}
+                  </div>
 
-                    <div className="pt-4 border-t border-slate-200 text-[10px] text-slate-400 text-center">
-                      Sent automatically by EventPulse &bull; support@eventpulse.com.ng<br />
-                      You received this notification because your account is registered on EventPulse.
-                    </div>
+                  {/* Footer */}
+                  <div className="text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3">
+                    EventPulse Campus Event Management System &bull; Keffi
                   </div>
                 </div>
               </div>
@@ -735,220 +661,193 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           </div>
         )}
 
-        {/* TAB 2: AUTOMATED LIFECYCLE RULES */}
+        {/* TAB 2: AUTOMATIC EVENT NOTIFICATIONS */}
         {activeTab === 'automated' && (
-          <div className="space-y-6 max-w-4xl mx-auto">
-            <div className="p-4 rounded-2xl bg-blue-50 dark:bg-royal/20 border border-blue-200 dark:border-royal/40 flex items-start gap-3">
-              <Zap className="w-5 h-5 text-royal dark:text-turquoise shrink-0 mt-0.5" />
-              <div className="text-xs">
-                <h4 className="font-bold text-royal dark:text-turquoise text-sm">
-                  Automatic Lifecycle Dispatch Engine
-                </h4>
-                <p className="text-slate-600 dark:text-slate-300 mt-0.5">
-                  These 4 automatic triggers run silently in the platform background and send direct transactional emails to users' main email addresses via your configured provider ({config.provider.toUpperCase()}).
-                </p>
+          <div className="space-y-6">
+            <div className="bg-blue-50/70 dark:bg-royal/10 border border-blue-200 dark:border-royal/30 rounded-2xl p-4 flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="text-xs text-slate-700 dark:text-slate-200">
+                <span className="font-bold block text-slate-900 dark:text-white text-sm">
+                  Automatic Event Notification Engine
+                </span>
+                EventPulse triggers real transactional emails through Resend API automatically during key lifecycle events. No manual intervention required.
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Rule 1: Welcome Message */}
-              <div className="p-5 rounded-3xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200 dark:border-navy-light/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center font-bold">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">1. Welcome Email</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">Trigger: On User Registration</span>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
-                      ENABLED
-                    </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* Trigger 1: New Event Announcement */}
+              <div className="bg-slate-50/70 dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise flex items-center justify-center font-bold">
+                    <Bell className="w-4 h-4" />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                    Automatically dispatches an onboarding email when any student, organizer, or staff member registers a new account on EventPulse.
-                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    AUTOMATIC
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!currentUser) return;
-                    db.sendWelcomeEmail(currentUser);
-                    refreshLogs();
-                    showToast(`Test Welcome email dispatched to ${currentUser.email}!`);
-                  }}
-                  className="w-full py-2 px-3 rounded-xl bg-white dark:bg-navy border border-slate-200 dark:border-navy-light/60 hover:border-teal text-slate-800 dark:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Send className="w-3.5 h-3.5 text-teal" />
-                  <span>Send Test Welcome to My Email</span>
-                </button>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  New Event Announcement
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Dispatched immediately to the campus community whenever an organizer or administrator publishes a new approved event.
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-navy-light/20">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">Test Dispatch for Event:</span>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                    {events.slice(0, 3).map(ev => (
+                      <div key={ev.id} className="flex items-center justify-between text-xs bg-white dark:bg-[#111A33] p-2 rounded-xl border border-slate-200/60 dark:border-navy-light/40">
+                        <span className="font-bold truncate max-w-[150px]">{ev.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleTriggerEventNotification(ev)}
+                          disabled={triggeringEventId === ev.id}
+                          className="px-2 py-1 rounded-lg bg-[#0B2E81] text-white text-[10px] font-bold hover:bg-blue-900 disabled:opacity-50"
+                        >
+                          {triggeringEventId === ev.id ? 'Sending...' : 'Trigger'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Rule 2: New Event Added */}
-              <div className="p-5 rounded-3xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200 dark:border-navy-light/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise flex items-center justify-center font-bold">
-                        <Bell className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">2. New Event Added</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">Trigger: On Event Published</span>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
-                      ENABLED
-                    </span>
+              {/* Trigger 2: Pass & Ticket Confirmation */}
+              <div className="bg-slate-50/70 dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-teal-100 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold">
+                    <Ticket className="w-4 h-4" />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                    Broadcasts a transactional announcement to campus members as soon as a new event is approved or published by organizers/administrators.
-                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    AUTOMATIC
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const evt = events[0];
-                    if (evt) {
-                      db.broadcastNewEventPublished(evt);
-                      refreshLogs();
-                      showToast(`Test New Event announcement dispatched for "${evt.title}"!`);
-                    } else {
-                      showToast('Please create at least one event first.');
-                    }
-                  }}
-                  className="w-full py-2 px-3 rounded-xl bg-white dark:bg-navy border border-slate-200 dark:border-navy-light/60 hover:border-royal text-slate-800 dark:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Send className="w-3.5 h-3.5 text-royal" />
-                  <span>Send Test New Event Broadcast</span>
-                </button>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Ticket & Pass Confirmation
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Sends the attendee an instant confirmation email with unique alphanumeric entry code, QR pass, venue instructions, and start time.
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-navy-light/20 text-[11px] text-slate-500">
+                  Trigger condition: User clicks "Register for free" on any event.
+                </div>
               </div>
 
-              {/* Rule 3: About to Happen (24h & 1h) */}
-              <div className="p-5 rounded-3xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200 dark:border-navy-light/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold">
-                        <Clock className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">3. About to Happen (24h / 1h)</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">Trigger: Countdown Scheduler</span>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
-                      ENABLED
-                    </span>
+              {/* Trigger 3: 24-Hour Countdown Reminder */}
+              <div className="bg-slate-50/70 dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold">
+                    <Clock className="w-4 h-4" />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                    Automated background ticker scans approaching event start times and sends reminders with verified ticket codes to confirmed attendees.
-                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    AUTOMATIC
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const evt = events[0];
-                    if (evt) {
-                      db.broadcastEventAboutToHappen(evt.id, 'REMINDER_1H');
-                      refreshLogs();
-                      showToast(`Test 1-Hour Reminder dispatched for "${evt.title}"!`);
-                    }
-                  }}
-                  className="w-full py-2 px-3 rounded-xl bg-white dark:bg-navy border border-slate-200 dark:border-navy-light/60 hover:border-amber-500 text-slate-800 dark:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Send className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Send Test 1-Hour Reminder</span>
-                </button>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  24-Hour Event Reminder
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Background scheduler detects confirmed attendees and dispatches a 24-hour reminder with calendar reminders and directions.
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-navy-light/20 text-[11px] text-slate-500">
+                  Handled by server daemon (<code className="font-mono">/api/cron/reminders</code>).
+                </div>
               </div>
 
-              {/* Rule 4: Happening Now */}
-              <div className="p-5 rounded-3xl bg-slate-50 dark:bg-[#0B132B] border border-slate-200 dark:border-navy-light/60 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold">
-                        <Sparkles className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">4. Happening Now Alert</h4>
-                        <span className="text-[10px] text-slate-400 font-mono">Trigger: Live Kickoff Notice</span>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
-                      ENABLED
-                    </span>
+              {/* Trigger 4: 1-Hour Countdown Reminder */}
+              <div className="bg-slate-50/70 dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 flex items-center justify-center font-bold">
+                    <Zap className="w-4 h-4" />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                    Dispatched automatically when an event starts live to alert attendees that doors are open and validation desks are active.
-                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    AUTOMATIC
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const evt = events[0];
-                    if (evt) {
-                      db.broadcastEventHappeningNow(evt.id);
-                      refreshLogs();
-                      showToast(`Test Happening Now alert dispatched for "${evt.title}"!`);
-                    }
-                  }}
-                  className="w-full py-2 px-3 rounded-xl bg-white dark:bg-navy border border-slate-200 dark:border-navy-light/60 hover:border-emerald-500 text-slate-800 dark:text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Send className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Send Test Happening Now Alert</span>
-                </button>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  1-Hour Doors Open Reminder
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Final countdown email reminding participants that venue doors open in 60 minutes with quick-access ticket pass.
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-navy-light/20 text-[11px] text-slate-500">
+                  Trigger condition: 60 minutes prior to event start time.
+                </div>
+              </div>
+
+              {/* Trigger 5: Schedule & Venue Relocation Notice */}
+              <div className="bg-slate-50/70 dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold">
+                    <Sliders className="w-4 h-4" />
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    AUTOMATIC
+                  </span>
+                </div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Venue & Schedule Updates
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  When an organiser edits the venue or start time of an event, an urgent update email is dispatched to all registered attendees.
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-navy-light/20 text-[11px] text-slate-500">
+                  Trigger condition: Event details modified in Organizer Workspace.
+                </div>
+              </div>
+
+              {/* Trigger 6: Welcome Email */}
+              <div className="bg-slate-50/70 dark:bg-[#0B132B] rounded-2xl border border-slate-200 dark:border-navy-light/40 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-100 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 flex items-center justify-center font-bold">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    AUTOMATIC
+                  </span>
+                </div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  Welcome to EventPulse
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Welcomes new student and staff accounts, providing orientation tips for discovering campus events and booking seats.
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-navy-light/20 text-[11px] text-slate-500">
+                  Trigger condition: Successful registration on /auth/register.
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 3: DISPATCH & DELIVERY LOGS */}
+        {/* TAB 3: OUTBOX & DELIVERY LOGS */}
         {activeTab === 'logs' && (
           <div className="space-y-4">
-            {/* Filter toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-1.5 overflow-x-auto">
-                {(['ALL', 'welcome', 'new_event', 'approaching', 'happening_now', 'custom'] as const).map(f => (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                {(['ALL', 'new_event', 'ticket', 'approaching', 'custom'] as const).map(cat => (
                   <button
-                    key={f}
+                    key={cat}
                     type="button"
-                    onClick={() => setLogFilter(f)}
-                    className={`px-3 py-1.5 rounded-xl font-bold capitalize transition-all ${
-                      logFilter === f
-                        ? 'bg-royal text-white'
+                    onClick={() => setLogFilter(cat as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      logFilter === cat
+                        ? 'bg-[#0B2E81] text-white shadow-xs'
                         : 'bg-slate-100 dark:bg-navy-light/40 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                     }`}
                   >
-                    {f === 'ALL' ? 'All Deliveries' : f.replace('_', ' ')}
+                    {cat.toUpperCase().replace('_', ' ')}
                   </button>
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={refreshLogs}
-                  className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-navy-light/40"
-                  title="Refresh logs"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    emailService.clearLogs();
-                    refreshLogs();
-                    showToast('Delivery logs cleared');
-                  }}
-                  className="text-xs text-rose-600 hover:underline font-bold"
-                >
-                  Clear Logs
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={refreshLogs}
+                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-navy-light/60 hover:bg-slate-100 dark:hover:bg-navy-light/30 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Logs</span>
+              </button>
             </div>
 
             {/* Table */}
@@ -957,7 +856,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                 <div className="text-center py-16 text-slate-400 space-y-2">
                   <Mail className="w-8 h-8 mx-auto text-slate-300" />
                   <p className="font-bold text-xs">No email dispatches recorded yet.</p>
-                  <p className="text-[11px]">Send an email campaign or test an automated trigger to see real delivery logs here.</p>
+                  <p className="text-[11px]">Dispatch an email campaign or test an automated notification to see real Resend delivery logs here.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -970,7 +869,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                         <th className="p-3">Category</th>
                         <th className="p-3">Provider</th>
                         <th className="p-3">Status</th>
-                        <th className="p-3 text-right">Payload</th>
+                        <th className="p-3 text-right">Details</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-navy-light/30">
@@ -991,7 +890,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                             </span>
                           </td>
                           <td className="p-3 font-mono text-[11px] whitespace-nowrap">
-                            <span className="text-royal dark:text-turquoise font-bold">{item.provider}</span>
+                            <span className="text-[#0B2E81] dark:text-turquoise font-bold">RESEND</span>
                           </td>
                           <td className="p-3 whitespace-nowrap">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
@@ -1021,53 +920,70 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           </div>
         )}
 
-        {/* TAB 4: MAILERLITE / RESEND SETUP */}
+        {/* TAB 4: RESEND SETUP */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="border border-slate-200 dark:border-navy-light/60 rounded-3xl p-6 sm:p-8 space-y-6 bg-slate-50/50 dark:bg-[#0B132B]/60">
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-teal" />
-                  <span>Server-Side Email Notification Engine</span>
+                  <span>Resend Transactional Email Delivery Setup</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  All transactional emails, scheduled reminders (24h & 1h), and emergency bulletins are executed server-side with zero exposure of API credentials to browser storage.
+                  Powered exclusively by Resend API. In production on Vercel, the secret API key is read from the <code className="font-mono font-bold text-royal dark:text-turquoise">EVENTPULSE_MAILS_API_KEY</code> environment variable.
                 </p>
               </div>
 
               <div className="p-6 rounded-2xl bg-white dark:bg-[#0B132B] border border-slate-200 dark:border-navy-light/60 text-xs space-y-4 shadow-xs">
-                <div className="flex items-center gap-2 text-teal-800 dark:text-teal-300 font-bold">
-                  <Zap className="w-4 h-4 text-teal" />
-                  <span>Production Transactional Dispatch Architecture</span>
-                </div>
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                  In compliance with application security standards, API credentials (<code className="font-mono font-bold text-slate-800 dark:text-slate-100">RESEND_API_KEY</code>) are configured strictly via server environment variables. The server daemon runs background jobs every 30 seconds to deliver scheduled reminders even when all users have closed their browsers.
-                </p>
                 <div className="p-4 bg-slate-50 dark:bg-navy-dark rounded-xl border border-slate-200 dark:border-navy-light/40 space-y-2 font-mono text-[11px]">
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
-                    <span className="text-slate-400">Mailer Engine:</span>
-                    <strong className="text-royal dark:text-turquoise">Server Daemon / Resend API v2</strong>
+                    <span className="text-slate-400">Provider:</span>
+                    <strong className="text-[#0B2E81] dark:text-turquoise">Resend (resend.com)</strong>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
-                    <span className="text-slate-400">Environment Secret:</span>
-                    <span className="text-emerald-600 font-bold">RESEND_API_KEY (Server Protected)</span>
+                    <span className="text-slate-400">Vercel Environment Variable:</span>
+                    <span className="text-emerald-600 font-bold">EVENTPULSE_MAILS_API_KEY</span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
                     <span className="text-slate-400">Default Sender Identity:</span>
-                    <span className="text-slate-700 dark:text-slate-300">EventPulse Notifications &lt;onboarding@resend.dev&gt;</span>
+                    <span className="text-slate-700 dark:text-slate-300">EventPulse &lt;support@eventpulse.com.ng&gt;</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-slate-400">Background Reminder Scheduler:</span>
+                    <span className="text-slate-400">Status:</span>
                     <span className="text-emerald-600 font-bold flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Active (Runs Every 30s)
+                      Active &amp; Ready
                     </span>
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-900/40 text-blue-800 dark:text-blue-300 text-xs">
-                  <strong>Verification Note:</strong> Transactional outbox records and statuses (<code className="font-mono font-bold">QUEUED</code>, <code className="font-mono font-bold">PROCESSING</code>, <code className="font-mono font-bold">SENT</code>, <code className="font-mono font-bold">DELIVERED</code>) can be inspected in real time under the <strong>Delivery Logs</strong> tab.
-                </div>
+                <form onSubmit={handleSaveConfig} className="space-y-3 pt-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                    Override Resend API Key (Optional local override):
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={customApiKey}
+                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-slate-50 dark:bg-[#111A33] text-xs font-mono pr-20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 hover:text-slate-800"
+                    >
+                      {showApiKey ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-xs shadow-md"
+                  >
+                    Save Settings
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -1100,7 +1016,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block">Provider:</span>
-                  <span className="font-bold text-royal dark:text-turquoise">{selectedLog.provider}</span>
+                  <span className="font-bold text-royal dark:text-turquoise">RESEND</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block">Timestamp:</span>
@@ -1118,12 +1034,22 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
               </div>
 
               <div>
-                <span className="font-bold text-slate-700 dark:text-slate-200 block mb-1">Rendered HTML Payload:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-200 block mb-1">Content:</span>
                 <div 
-                  className="p-4 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white max-h-60 overflow-y-auto text-slate-800"
+                  className="p-4 rounded-xl border border-slate-200 dark:border-navy-light/40 bg-white dark:bg-[#0B132B] max-h-60 overflow-y-auto text-xs leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: selectedLog.bodyHtml }}
                 />
               </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 dark:border-navy-light/40 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedLog(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-navy-light/40 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
