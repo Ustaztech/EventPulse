@@ -27,6 +27,10 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
   const resendApiKey = process.env.EVENTPULSE_MAILS_API_KEY || process.env.RESEND_API_KEY || '';
   const senderEmail = process.env.SMTP_FROM_EMAIL || 'support@eventpulse.com.ng';
   const senderName = process.env.SMTP_FROM_NAME || 'EventPulse';
+  const testMode = process.env.EVENTPULSE_EMAIL_TEST_MODE === 'true' || process.env.NODE_ENV !== 'production';
+  const deliveryRecipient = testMode
+    ? (process.env.EVENTPULSE_TEST_EMAIL_RECIPIENT || 'yahayazaid2021@gmail.com')
+    : payload.to.trim();
 
   const cleanText = payload.bodyText || payload.bodyHtml.replace(/<[^>]*>?/gm, '').trim();
   const brandedHtml = `
