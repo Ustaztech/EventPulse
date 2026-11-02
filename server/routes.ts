@@ -194,12 +194,13 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
       const body = await parseBody(req);
       const { email, password, rememberMe } = body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-      if (!email || !password) {
+      if (!normalizedEmail || typeof password !== 'string' || !password) {
         return sendJson(res, 400, { error: 'Email and password are required.' });
       }
 
-      const user = serverDb.getUserByEmail(email);
+      const user = serverDb.getUserByEmail(normalizedEmail);
       // Account enumeration protection: identical error response
       if (!user || !verifyPassword(password, user.password_hash)) {
         return sendJson(res, 401, { error: 'Invalid email address or password. Please try again.' });
@@ -258,12 +259,13 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
       const body = await parseBody(req);
       const { email, password, mfaCode } = body;
+      const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-      if (!email || !password) {
+      if (!normalizedEmail || typeof password !== 'string' || !password) {
         return sendJson(res, 400, { error: 'Administrator credentials required.' });
       }
 
-      const user = serverDb.getUserByEmail(email);
+      const user = serverDb.getUserByEmail(normalizedEmail);
       if (!user || !verifyPassword(password, user.password_hash) || user.role !== 'ADMIN') {
         return sendJson(res, 401, { error: 'Invalid administrator credentials or access denied.' });
       }
