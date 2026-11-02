@@ -184,45 +184,6 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       });
     }
 
-    // POST /api/auth/google — exchange a verified Supabase Google token for an EventPulse session
-    if (pathname === '/api/auth/google' && method === 'POST') {
-      const body = await parseBody(req);
-      const accessToken = typeof body.accessToken === 'string' ? body.accessToken.trim() : '';
-      const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-      if (!accessToken || !supabaseUrl || !serviceKey) return sendJson(res, 503, { error: 'Google sign-in is not configured.' });
-
-      const supabaseResponse = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${accessToken}` },
-      });
-      if (!supabaseResponse.ok) return sendJson(res, 401, { error: 'Google sign-in could not be verified.' });
-      const googleUser = await supabaseResponse.json() as { id?: string; email?: string; user_metadata?: Record<string, string> };
-      const email = googleUser.email?.trim().toLowerCase();
-      if (!email) return sendJson(res, 400, { error: 'Your Google account does not provide an email address.' });
-
-      let user = serverDb.getUserByEmail(email);
-      if (!user) {
-        const metadata = googleUser.user_metadata || {};
-        const name = metadata.full_name || metadata.name || email.split('@')[0];
-        user = serverDb.createUser({
-          name,
-          email,
-          passwordHash: await hashPassword(generateSecureToken(32)),
-          role: 'STUDENT',
-          userType: 'STUDENT',
-          avatarUrl: metadata.avatar_url || metadata.picture,
-          emailVerified: 1,
-        });
-      } else if (!user.email_verified) {
-        serverDb.verifyUserEmail(user.id);
-        user = serverDb.getUserById(user.id)!;
-      }
-
-      const sessionToken = createSessionToken({ id: user.id, email: user.email, role: user.role, name: user.name });
-      serverDb.logAudit(user.id, user.name, 'USER_LOGIN', 'User', user.id, 'Signed in with Google', clientIp);
-      return sendJson(res, 200, { success: true, user, token: sessionToken });
-    }
-
     // POST /api/auth/login
     if (pathname === '/api/auth/login' && method === 'POST') {
       const rateKey = `login_${clientIp}`;
