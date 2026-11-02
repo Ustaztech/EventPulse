@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from './types';
 import { db } from './storage';
+import { supabase } from './supabase';
 
 interface AuthContextType {
   currentUser: User | null;
   unreadCount: number;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
+  googleLogin: () => Promise<{ success: boolean; error?: string }>;
   adminLogin: (email: string, password: string, mfaCode?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   register: (userData: {
@@ -59,6 +61,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, error: res.error };
   };
 
+  const googleLogin = async () => {
+    if (!supabase) return { success: false, error: 'Google sign-in is not configured.' };
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) return { success: false, error: 'Unable to start Google sign-in.' };
+    if (data.url) window.location.assign(data.url);
+    return { success: true };
+  };
+
   const adminLogin = async (email: string, pass: string, mfaCode?: string) => {
     const res = await db.adminLogin(email, pass, mfaCode);
     if (res.user) {
@@ -70,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    void supabase?.auth.signOut();
     db.setCurrentUser(null);
     setCurrentUser(null);
     setUnreadCount(0);
@@ -95,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, unreadCount, login, adminLogin, logout, register, refreshUserData }}>
+    <AuthContext.Provider value={{ currentUser, unreadCount, login, googleLogin, adminLogin, logout, register, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

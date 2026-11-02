@@ -41,8 +41,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    const error = new Error(data?.error || `HTTP error ${response.status}`) as Error & { status?: number };
+    error.status = response.status;
     if (data?.error) {
-      throw new Error(data.error);
+      throw error;
     }
     if (response.status === 404) {
       throw new Error(`Endpoint unavailable (${response.status}). Please verify the backend service is running or reload.`);
@@ -59,6 +61,15 @@ export const api = {
     const res = await request<{ success: boolean; user: any; token: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password: pass, rememberMe }),
+    });
+    setStoredToken(res.token);
+    return res;
+  },
+
+  async googleLogin(accessToken: string) {
+    const res = await request<{ success: boolean; user: any; token: string }>('/api/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ accessToken }),
     });
     setStoredToken(res.token);
     return res;

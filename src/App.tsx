@@ -14,7 +14,7 @@ import { ExplorePage } from './pages/ExplorePage';
 import { EventDetailsPage } from './pages/EventDetailsPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { VerifyEmailPage, ResetPasswordPage } from './pages/AuthAuxPages';
+import { AuthCallbackPage, VerifyEmailPage, ResetPasswordPage } from './pages/AuthAuxPages';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { OrganizerDashboard } from './pages/OrganizerDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -72,6 +72,7 @@ export function App() {
                 {/* Unified login: /auth/admin-login redirects to /auth/login */}
                 <Route path="/auth/admin-login" element={<Navigate to="/auth/login" replace />} />
                 <Route path="/auth/register" element={<AuthPageOnly><RegisterPage /></AuthPageOnly>} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="/auth/verify" element={<VerifyEmailPage />} />
                 <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
                 
