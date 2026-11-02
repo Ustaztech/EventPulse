@@ -4,31 +4,6 @@ import { CheckCircle2, Mail, Lock, ArrowRight, AlertCircle, KeyRound, ShieldChec
 import { BrandLogo } from '../components/BrandLogo';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
-import { supabase } from '../lib/supabase';
-
-export const AuthCallbackPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-
-  React.useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!supabase) { setError('Google sign-in is not configured.'); return; }
-      const code = new URLSearchParams(window.location.search).get('code');
-      const exchange = code ? await supabase.auth.exchangeCodeForSession(code) : await supabase.auth.getSession();
-      if (exchange.error || !exchange.data.session) {
-        if (active) setError('Google sign-in could not be completed. Please try again.');
-        return;
-      }
-      const result = await api.googleLogin(exchange.data.session.access_token);
-      if (active && result.user) window.location.replace('/');
-    })().catch(() => active && setError('Google sign-in could not be completed. Please try again.'));
-    return () => { active = false; };
-  }, [navigate]);
-
-  return <div className="min-h-[70vh] flex items-center justify-center p-6"><div className="text-center"><p className="font-semibold">{error || 'Completing Google sign-in...'}</p>{error && <Link className="text-blue-600 underline" to="/auth/login">Return to login</Link>}</div></div>;
-};
-
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialEmail = searchParams.get('email') || '';

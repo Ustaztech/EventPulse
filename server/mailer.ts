@@ -29,6 +29,17 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
   const senderName = process.env.SMTP_FROM_NAME || 'EventPulse';
 
   const cleanText = payload.bodyText || payload.bodyHtml.replace(/<[^>]*>?/gm, '').trim();
+  const brandedHtml = `
+    <div style="margin:0;background:#f8fafc;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
+      <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
+        <div style="background:#1d4ed8;padding:22px 28px;color:#ffffff">
+          <div style="font-size:22px;font-weight:800;letter-spacing:-.5px">EventPulse <span style="font-size:11px;color:#99f6e4;letter-spacing:1px">NSUK</span></div>
+          <div style="font-size:12px;color:#dbeafe;margin-top:4px">Campus events, connected.</div>
+        </div>
+        <div style="padding:28px">${payload.bodyHtml}</div>
+        <div style="border-top:1px solid #e2e8f0;padding:16px 28px;color:#64748b;font-size:12px">EventPulse NSUK · Nasarawa State University, Keffi</div>
+      </div>
+    </div>`;
 
   // 1. Live Resend Provider
   if (resendApiKey && resendApiKey.trim().length > 0) {
@@ -47,7 +58,7 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
           from: fromAddress,
           to: [payload.to.trim()],
           subject: payload.subject,
-          html: payload.bodyHtml,
+          html: brandedHtml,
           text: cleanText,
         }),
       });
