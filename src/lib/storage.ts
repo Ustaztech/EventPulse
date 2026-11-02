@@ -87,9 +87,11 @@ class EventPulseStorage {
               createdAt: meRes.user.createdAt,
             };
           }
-        } catch {
-          this.currentUser = null;
-          api.logout();
+        } catch (error: any) {
+          if (error?.status === 401) {
+            this.currentUser = null;
+            api.logout();
+          }
         }
       }
 

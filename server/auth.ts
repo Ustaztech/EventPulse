@@ -31,7 +31,9 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   }
   const [salt, originalHash] = storedHash.split(':');
   const candidateHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(candidateHash, 'hex'), Buffer.from(originalHash, 'hex'));
+  const candidateBuffer = Buffer.from(candidateHash, 'hex');
+  const originalBuffer = Buffer.from(originalHash, 'hex');
+  return candidateBuffer.length === originalBuffer.length && crypto.timingSafeEqual(candidateBuffer, originalBuffer);
 }
 
 /**

@@ -6,7 +6,8 @@ import {
   ArrowRight, 
   AlertCircle, 
   Eye, 
-  EyeOff
+  EyeOff,
+  Chrome
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
@@ -20,7 +21,8 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, currentUser } = useAuth();
+  const { login, googleLogin, currentUser } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
@@ -247,6 +249,24 @@ export const LoginPage: React.FC = () => {
                 <div className="border-t border-slate-200 dark:border-navy-light/40 w-full" />
                 <span className="bg-white dark:bg-[#111A33] px-3 text-xs text-slate-400 absolute font-medium">or</span>
               </div>
+
+              <button
+                type="button"
+                disabled={isLoading || googleLoading}
+                onClick={async () => {
+                  setError(null);
+                  setGoogleLoading(true);
+                  const result = await googleLogin();
+                  if (!result.success) {
+                    setGoogleLoading(false);
+                    setError(result.error || 'Unable to sign in with Google.');
+                  }
+                }}
+                className="w-full min-h-[44px] py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 text-center font-bold text-sm text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-navy-light/20 flex items-center justify-center gap-2 transition-all disabled:opacity-70"
+              >
+                <Chrome className="w-4 h-4" />
+                {googleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+              </button>
 
               {/* Create account outline button */}
               <Link 
