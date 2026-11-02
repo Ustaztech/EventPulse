@@ -66,15 +66,6 @@ export const api = {
     return res;
   },
 
-  async googleLogin(accessToken: string) {
-    const res = await request<{ success: boolean; user: any; token: string }>('/api/auth/google', {
-      method: 'POST',
-      body: JSON.stringify({ accessToken }),
-    });
-    setStoredToken(res.token);
-    return res;
-  },
-
   async adminLogin(email: string, pass: string, mfaCode?: string) {
     const res = await request<{ success: boolean; user: any; token: string }>('/api/auth/admin-login', {
       method: 'POST',
