@@ -78,17 +78,22 @@ export function verifySessionToken(token: string): { valid: boolean; payload?: a
   const parts = token.split('.');
   if (parts.length !== 3) return { valid: false, error: 'Malformed token' };
 
-  const [header, claims, signature] = parts;
-  const expectedSignature = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(`${header}.${claims}`)
-    .digest('base64url');
-
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
-    return { valid: false, error: 'Invalid signature' };
-  }
-
   try {
+    const [header, claims, signature] = parts;
+    const expectedSignature = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(`${header}.${claims}`)
+      .digest('base64url');
+    const providedSignature = Buffer.from(signature, 'base64url');
+    const expectedSignatureBuffer = Buffer.from(expectedSignature, 'base64url');
+
+    if (
+      providedSignature.length !== expectedSignatureBuffer.length ||
+      !crypto.timingSafeEqual(providedSignature, expectedSignatureBuffer)
+    ) {
+      return { valid: false, error: 'Invalid signature' };
+    }
+
     const payload = JSON.parse(Buffer.from(claims, 'base64url').toString('utf8'));
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < now) {
