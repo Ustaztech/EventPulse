@@ -60,7 +60,7 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
         },
         body: JSON.stringify({
           from: fromAddress,
-          to: [payload.to.trim()],
+          to: [deliveryRecipient],
           subject: payload.subject,
           html: brandedHtml,
           text: cleanText,
