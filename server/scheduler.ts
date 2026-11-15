@@ -1,5 +1,5 @@
-import { serverDb } from './db';
-import { sendTransactionalEmail } from './mailer';
+import { serverDb } from './db.js';
+import { sendTransactionalEmail } from './mailer.js';
 
 export class EventPulseScheduler {
   private isProcessing = false;

@@ -33,6 +33,7 @@ export const ExplorePage: React.FC = () => {
   const initialCampus = searchParams.get('campus') || 'all';
   const initialOrganizer = searchParams.get('organizer') || 'all';
   const initialFormat = searchParams.get('format') || 'all';
+  const initialNearby = searchParams.get('nearby') || 'all';
 
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
@@ -40,6 +41,7 @@ export const ExplorePage: React.FC = () => {
   const [selectedCampus, setSelectedCampus] = useState(initialCampus);
   const [selectedOrganizer, setSelectedOrganizer] = useState(initialOrganizer);
   const [selectedFormat, setSelectedFormat] = useState(initialFormat);
+  const [selectedNearby, setSelectedNearby] = useState(initialNearby);
   const [selectedSort, setSelectedSort] = useState<'date-asc' | 'date-desc' | 'popular' | 'alpha'>('date-asc');
   const [activeView, setActiveView] = useState<'grid' | 'calendar'>(initialView === 'calendar' ? 'calendar' : 'grid');
 
@@ -65,6 +67,7 @@ export const ExplorePage: React.FC = () => {
     if (selectedCampus !== 'all') params.campus = selectedCampus;
     if (selectedOrganizer !== 'all') params.organizer = selectedOrganizer;
     if (selectedFormat !== 'all') params.format = selectedFormat;
+    if (selectedNearby !== 'all') params.nearby = selectedNearby;
     if (activeView === 'calendar') params.view = 'calendar';
     setSearchParams(params, { replace: true });
   }, [
@@ -74,6 +77,7 @@ export const ExplorePage: React.FC = () => {
     selectedCampus,
     selectedOrganizer,
     selectedFormat,
+    selectedNearby,
     activeView,
   ]);
 
@@ -132,6 +136,18 @@ export const ExplorePage: React.FC = () => {
           }
         }
 
+        // Nearby location filter
+        if (selectedNearby !== 'all') {
+          const locationText = [evt.venueName, evt.campusArea, evt.address, evt.landmark]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          const matchesKeffi = locationText.includes('keffi') || locationText.includes('nsuk');
+          const matchesNasarawa = locationText.includes('nasarawa') || matchesKeffi;
+          if (selectedNearby === 'keffi' && !matchesKeffi) return false;
+          if (selectedNearby === 'nasarawa' && !matchesNasarawa) return false;
+        }
+
         // Category Filter
         if (selectedCategory !== 'all') {
           if (evt.categoryId !== selectedCategory && evt.categorySlug !== selectedCategory) {
@@ -185,6 +201,7 @@ export const ExplorePage: React.FC = () => {
     selectedCampus,
     selectedOrganizer,
     selectedFormat,
+    selectedNearby,
     selectedSort,
   ]);
 
@@ -195,6 +212,7 @@ export const ExplorePage: React.FC = () => {
     setSelectedCampus('all');
     setSelectedOrganizer('all');
     setSelectedFormat('all');
+    setSelectedNearby('all');
     setSelectedSort('date-asc');
     setSearchParams({});
   };
@@ -205,7 +223,8 @@ export const ExplorePage: React.FC = () => {
     selectedDateOption !== 'any' ||
     selectedCampus !== 'all' ||
     selectedOrganizer !== 'all' ||
-    selectedFormat !== 'all';
+    selectedFormat !== 'all' ||
+    selectedNearby !== 'all';
 
   // Calendar Helpers
   const currentYear = currentMonthDate.getFullYear();
@@ -426,6 +445,30 @@ export const ExplorePage: React.FC = () => {
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
               Discover workshops, sports, cultural events and more.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Filter events by nearby location">
+              <span className="mr-1 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Nearby
+              </span>
+              {[
+                { id: 'all', label: 'All locations' },
+                { id: 'keffi', label: 'Keffi' },
+                { id: 'nasarawa', label: 'Nasarawa State' },
+              ].map((location) => (
+                <button
+                  key={location.id}
+                  type="button"
+                  aria-pressed={selectedNearby === location.id}
+                  onClick={() => setSelectedNearby(location.id)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    selectedNearby === location.id
+                      ? 'border-blue-600 bg-blue-600 text-white dark:border-teal-400 dark:bg-teal-400 dark:text-navy'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-navy-light dark:bg-navy-light/30 dark:text-slate-300'
+                  }`}
+                >
+                  {location.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Search, Sort, and View Controls matching Image 4 */}

@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
-import { hashPassword, generateSecureToken } from './auth';
+import { hashPassword, generateSecureToken } from './auth.js';
 
 export interface UserRow {
   id: string;
@@ -547,7 +547,7 @@ class EventPulseDatabase {
   }
 
   public getAllUsers(): UserRow[] {
-    return this.db.prepare('SELECT id, name, email, role, user_type, matric_or_staff_id, faculty, department, phone, avatar_url, email_verified, mfa_enabled, created_at, updated_at FROM users ORDER BY created_at DESC').all() as UserRow[];
+    return this.db.prepare('SELECT id, name, email, role, user_type, matric_or_staff_id, faculty, department, phone, avatar_url, email_verified, mfa_enabled, created_at, updated_at FROM users ORDER BY created_at DESC').all() as unknown as UserRow[];
   }
 
   public createUser(userData: {
@@ -705,14 +705,14 @@ class EventPulseDatabase {
         JOIN users u ON a.user_id = u.id
         WHERE a.user_id = ?
         ORDER BY a.created_at DESC
-      `).all(userId) as OrganiserApplicationRow[];
+      `).all(userId) as unknown as OrganiserApplicationRow[];
     }
     return this.db.prepare(`
       SELECT a.*, u.name as user_name, u.email as user_email
       FROM organiser_applications a
       JOIN users u ON a.user_id = u.id
       ORDER BY a.created_at DESC
-    `).all() as OrganiserApplicationRow[];
+    `).all() as unknown as OrganiserApplicationRow[];
   }
 
   public reviewOrganiserApplication(id: string, status: 'APPROVED' | 'REJECTED', reviewedBy: string, feedback?: string): boolean {
@@ -741,7 +741,7 @@ class EventPulseDatabase {
 
   // --- Categories & Venues ---
   public getCategories(): CategoryRow[] {
-    return this.db.prepare('SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC').all() as CategoryRow[];
+    return this.db.prepare('SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC').all() as unknown as CategoryRow[];
   }
 
   public getCategoryBySlugOrId(identifier: string): CategoryRow | undefined {
@@ -759,7 +759,7 @@ class EventPulseDatabase {
   }
 
   public getVenues(): VenueRow[] {
-    return this.db.prepare('SELECT * FROM venues WHERE is_active = 1 ORDER BY name ASC').all() as VenueRow[];
+    return this.db.prepare('SELECT * FROM venues WHERE is_active = 1 ORDER BY name ASC').all() as unknown as VenueRow[];
   }
 
   // --- Events ---
@@ -865,7 +865,7 @@ class EventPulseDatabase {
       query += ' ORDER BY e.start_time ASC';
     }
 
-    return this.db.prepare(query).all(...params) as EventRow[];
+    return this.db.prepare(query).all(...params) as unknown as EventRow[];
   }
 
   public getEventById(id: string): EventRow | undefined {
@@ -1064,7 +1064,7 @@ class EventPulseDatabase {
       JOIN events e ON r.event_id = e.id
       WHERE r.user_id = ? AND r.status != 'CANCELLED'
       ORDER BY r.registered_at DESC
-    `).all(userId) as RegistrationRow[];
+    `).all(userId) as unknown as RegistrationRow[];
 
     return rows.map(r => ({
       ...r,
@@ -1080,7 +1080,7 @@ class EventPulseDatabase {
       JOIN events e ON r.event_id = e.id
       WHERE r.event_id = ?
       ORDER BY r.registered_at ASC
-    `).all(eventId) as RegistrationRow[];
+    `).all(eventId) as unknown as RegistrationRow[];
   }
 
   public cancelRegistration(regId: string, userId: string, isAdmin: boolean = false): boolean {
@@ -1156,7 +1156,7 @@ class EventPulseDatabase {
 
   // --- In-App Notifications ---
   public getInAppNotifications(userId: string): InAppNotificationRow[] {
-    return this.db.prepare('SELECT * FROM in_app_notifications WHERE user_id = ? ORDER BY created_at DESC').all(userId) as InAppNotificationRow[];
+    return this.db.prepare('SELECT * FROM in_app_notifications WHERE user_id = ? ORDER BY created_at DESC').all(userId) as unknown as unknown as InAppNotificationRow[];
   }
 
   public createInAppNotification(data: { userId: string; title: string; message: string; type: string; eventId?: string }): InAppNotificationRow {
@@ -1168,7 +1168,7 @@ class EventPulseDatabase {
       VALUES (?, ?, ?, ?, ?, ?, 0, ?)
     `).run(id, data.userId, data.title, data.message, data.type, data.eventId || null, now);
 
-    return this.db.prepare('SELECT * FROM in_app_notifications WHERE id = ?').get(id) as InAppNotificationRow;
+    return this.db.prepare('SELECT * FROM in_app_notifications WHERE id = ?').get(id) as unknown as InAppNotificationRow;
   }
 
   public markNotificationAsRead(id: string, userId: string): boolean {
@@ -1183,7 +1183,7 @@ class EventPulseDatabase {
 
   // --- Preferences & Unsubscribe ---
   public getNotificationPreferences(userId: string): NotificationPreferencesRow {
-    let pref = this.db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId) as NotificationPreferencesRow | undefined;
+    let pref = this.db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId) as unknown as NotificationPreferencesRow | undefined;
     if (!pref) {
       const id = `pref-${userId}`;
       const unsub = generateSecureToken(16);
@@ -1192,7 +1192,7 @@ class EventPulseDatabase {
         INSERT INTO notification_preferences (id, user_id, email_announcements, reminder_24h, reminder_1h, event_starting_now, event_changes, unsubscribe_token, updated_at)
         VALUES (?, ?, 1, 1, 1, 1, 1, ?, ?)
       `).run(id, userId, unsub, now);
-      pref = this.db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId) as NotificationPreferencesRow;
+      pref = this.db.prepare('SELECT * FROM notification_preferences WHERE user_id = ?').get(userId) as unknown as NotificationPreferencesRow;
     }
     return pref;
   }
@@ -1230,7 +1230,7 @@ class EventPulseDatabase {
   }
 
   public unsubscribeByToken(token: string): { success: boolean; email?: string; error?: string } {
-    const pref = this.db.prepare('SELECT * FROM notification_preferences WHERE unsubscribe_token = ?').get(token) as NotificationPreferencesRow | undefined;
+    const pref = this.db.prepare('SELECT * FROM notification_preferences WHERE unsubscribe_token = ?').get(token) as unknown as NotificationPreferencesRow | undefined;
     if (!pref) {
       return { success: false, error: 'Invalid or expired unsubscribe token.' };
     }
@@ -1255,7 +1255,7 @@ class EventPulseDatabase {
     scheduledFor?: string;
     idempotencyKey: string;
   }): EmailOutboxRow {
-    const existing = this.db.prepare('SELECT * FROM email_outbox WHERE idempotency_key = ?').get(job.idempotencyKey) as EmailOutboxRow | undefined;
+    const existing = this.db.prepare('SELECT * FROM email_outbox WHERE idempotency_key = ?').get(job.idempotencyKey) as unknown as EmailOutboxRow | undefined;
     if (existing) return existing;
 
     const id = `outbox-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -1272,11 +1272,11 @@ class EventPulseDatabase {
       job.idempotencyKey, now, now
     );
 
-    return this.db.prepare('SELECT * FROM email_outbox WHERE id = ?').get(id) as EmailOutboxRow;
+    return this.db.prepare('SELECT * FROM email_outbox WHERE id = ?').get(id) as unknown as EmailOutboxRow;
   }
 
   public getOutboxJobs(limit: number = 100): EmailOutboxRow[] {
-    return this.db.prepare('SELECT * FROM email_outbox ORDER BY created_at DESC LIMIT ?').all(limit) as EmailOutboxRow[];
+    return this.db.prepare('SELECT * FROM email_outbox ORDER BY created_at DESC LIMIT ?').all(limit) as unknown as unknown as EmailOutboxRow[];
   }
 
   public updateOutboxStatus(id: string, status: EmailOutboxRow['status'], provider?: string, providerMessageId?: string, errorMessage?: string): boolean {
@@ -1341,11 +1341,11 @@ class EventPulseDatabase {
       VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?)
     `).run(id, refCode, ticket.userId || null, ticket.name, ticket.email, ticket.subject, ticket.message, now, now);
 
-    return this.db.prepare('SELECT * FROM support_tickets WHERE id = ?').get(id) as SupportTicketRow;
+    return this.db.prepare('SELECT * FROM support_tickets WHERE id = ?').get(id) as unknown as SupportTicketRow;
   }
 
   public getSupportTickets(): SupportTicketRow[] {
-    return this.db.prepare('SELECT * FROM support_tickets ORDER BY created_at DESC').all() as SupportTicketRow[];
+    return this.db.prepare('SELECT * FROM support_tickets ORDER BY created_at DESC').all() as unknown as unknown as SupportTicketRow[];
   }
 
   public updateSupportTicketStatus(id: string, status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED', resolvedBy?: string, adminNotes?: string): boolean {
@@ -1374,7 +1374,7 @@ class EventPulseDatabase {
   }
 
   public getAuditLogs(limit: number = 100): AuditLogRow[] {
-    return this.db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?').all(limit) as AuditLogRow[];
+    return this.db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?').all(limit) as unknown as AuditLogRow[];
   }
 
   // --- Statistics & Participation Reports ---

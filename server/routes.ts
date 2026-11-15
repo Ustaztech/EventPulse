@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { serverDb } from './db';
+import { serverDb } from './db.js';
 import { 
   hashPassword, 
   verifyPassword, 
@@ -9,9 +9,9 @@ import {
   generateVerificationCode, 
   checkRateLimit, 
   resetRateLimit 
-} from './auth';
-import { scheduler } from './scheduler';
-import { sendTransactionalEmail } from './mailer';
+} from './auth.js';
+import { scheduler } from './scheduler.js';
+import { sendTransactionalEmail } from './mailer.js';
 
 // Helper to parse JSON body
 function parseBody(req: IncomingMessage): Promise<any> {
