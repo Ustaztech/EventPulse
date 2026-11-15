@@ -101,8 +101,8 @@ export const LoginPage: React.FC = () => {
           <div className="relative z-10 my-4 rounded-2xl overflow-hidden border border-white/20 shadow-2xl bg-blue-950/40 backdrop-blur-sm group">
             <div className="relative h-48 sm:h-56 w-full flex items-center justify-center">
               <img 
-                src="/assets/calendar_3d.jpg" 
-                alt="EventPulse 3D Calendar and Campus Events" 
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/images%20%2842%29-Ab8ygAMeMCjkEYMgWqPj4Gib6YiGGl.jpg" 
+                alt="Main entrance gate at Nasarawa State University, Keffi" 
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-blue-950/60 via-transparent to-transparent pointer-events-none" />
