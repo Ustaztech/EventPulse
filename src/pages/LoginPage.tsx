@@ -12,6 +12,16 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { getDefaultDashboardRoute } from '../lib/rbac';
 
+function getSafeRedirect(target: string | null): string | null {
+  if (!target || !target.startsWith('/') || target.startsWith('//') || target.includes('\\')) return null;
+  try {
+    const url = new URL(target, window.location.origin);
+    return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,16 +34,17 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
+  const safeRedirect = getSafeRedirect(redirectParam);
 
   React.useEffect(() => {
     if (currentUser) {
-      if (redirectParam) {
-        navigate(decodeURIComponent(redirectParam), { replace: true });
+      if (safeRedirect) {
+        navigate(safeRedirect, { replace: true });
       } else {
         navigate(getDefaultDashboardRoute(currentUser), { replace: true });
       }
     }
-  }, [currentUser, navigate, redirectParam]);
+  }, [currentUser, navigate, safeRedirect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,8 +57,8 @@ export const LoginPage: React.FC = () => {
       if (!res.success) {
         setError(res.error || 'Invalid email or password. Please try again.');
       } else {
-        if (redirectParam) {
-          navigate(decodeURIComponent(redirectParam));
+        if (safeRedirect) {
+          navigate(safeRedirect);
         } else {
           const loggedUser = db.getCurrentUser();
           navigate(getDefaultDashboardRoute(loggedUser));

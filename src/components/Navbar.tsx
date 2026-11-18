@@ -409,7 +409,7 @@ export const Navbar: React.FC = () => {
                           >
                             <Layers className="w-4 h-4 text-slate-400" />
                             <span>
-                              {currentUser.role === 'ORGANIZER' ? 'Organizer Dashboard' : 'Student Dashboard'}
+                              {currentUser.role === 'ORGANIZER' ? 'Organizer Dashboard' : currentUser.role === 'STAFF' ? 'Staff Dashboard' : 'Student Dashboard'}
                             </span>
                           </Link>
                         )}

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from './types';
 import { db } from './storage';
-import { supabase } from './supabase';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -71,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    void supabase?.auth.signOut();
     db.setCurrentUser(null);
     setCurrentUser(null);
     setUnreadCount(0);

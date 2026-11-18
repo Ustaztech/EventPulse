@@ -8,16 +8,15 @@ const TOKEN_KEY = 'eventpulse_auth_token';
 
 export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
 }
 
-export function setStoredToken(token: string | null): void {
+export function setStoredToken(token: string | null, rememberMe = true): void {
   if (typeof window === 'undefined') return;
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-  } else {
-    localStorage.removeItem(TOKEN_KEY);
-  }
+  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  if (!token) return;
+  (rememberMe ? localStorage : sessionStorage).setItem(TOKEN_KEY, token);
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -62,7 +61,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password: pass, rememberMe }),
     });
-    setStoredToken(res.token);
+    setStoredToken(res.token, rememberMe);
     return res;
   },
 

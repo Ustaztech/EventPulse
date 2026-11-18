@@ -353,6 +353,17 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       }
 
       serverDb.verifyUserEmail(user.id);
+      serverDb.enqueueOutboxJob({
+        recipientEmail: user.email,
+        recipientName: user.name,
+        subject: 'Welcome to EventPulse',
+        bodyHtml: `<h2>Welcome, ${user.name}!</h2><p>Your campus account is verified. You can now explore events, reserve places, and manage your reminders from EventPulse.</p>`,
+        bodyText: `Welcome to EventPulse, ${user.name}! Your account is verified and ready to use.`,
+        notificationType: 'WELCOME',
+        userId: user.id,
+        idempotencyKey: `welcome-${user.id}`,
+      });
+      scheduler.tick().catch(err => console.error('[Scheduler] Immediate welcome email dispatch error:', err));
       serverDb.logAudit(user.id, user.name, 'EMAIL_VERIFIED', 'User', user.id, 'Email address verified', clientIp);
 
       return sendJson(res, 200, { success: true, message: 'Email verified successfully.' });
@@ -969,8 +980,37 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const body = await parseBody(req);
       const { status, feedback } = body;
 
+      if (status !== 'APPROVED' && status !== 'REJECTED') {
+        return sendJson(res, 400, { error: 'Choose approve or decline for this application.' });
+      }
+
+      const application = serverDb.getOrganiserApplicationById(appId);
+      if (!application) return sendJson(res, 404, { error: 'Application not found.' });
       const success = serverDb.reviewOrganiserApplication(appId, status, authUser.name, feedback);
       if (!success) return sendJson(res, 404, { error: 'Application not found.' });
+
+      const approved = status === 'APPROVED';
+      if (!approved) {
+        serverDb.createInAppNotification({
+          userId: application.user_id,
+          title: 'Organizer application update',
+          message: `Your organizer application was not approved.${feedback ? ` Reviewer note: ${feedback}` : ''}`,
+          type: 'ANNOUNCEMENT',
+        });
+      }
+      serverDb.enqueueOutboxJob({
+        recipientEmail: application.user_email || '',
+        recipientName: application.user_name || 'Campus member',
+        subject: approved ? 'Your EventPulse organizer application is approved' : 'An update on your EventPulse organizer application',
+        bodyHtml: `<h2>${approved ? 'You are approved to organize events' : 'Your application has been reviewed'}</h2><p>Hello ${application.user_name || 'there'},</p><p>${approved ? 'Your organizer application for ' + application.organization_name + ' has been approved. Sign in to create your first event.' : 'Your organizer application for ' + application.organization_name + ' was not approved at this time.'}</p>${feedback ? `<p><strong>Reviewer note:</strong> ${feedback}</p>` : ''}`,
+        bodyText: approved
+          ? `Your organizer application for ${application.organization_name} is approved. Sign in to create your first event.`
+          : `Your organizer application for ${application.organization_name} was not approved.${feedback ? ` Reviewer note: ${feedback}` : ''}`,
+        notificationType: 'APPLICATION_STATUS',
+        userId: application.user_id,
+        idempotencyKey: `organizer-app-${appId}-${status}`,
+      });
+      scheduler.tick().catch(err => console.error('[Scheduler] Immediate application email dispatch error:', err));
 
       serverDb.logAudit(authUser.id, authUser.name, `APP_${status}`, 'Application', appId, `Organiser application ${status.toLowerCase()}`, clientIp);
 

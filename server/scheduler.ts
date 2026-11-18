@@ -173,7 +173,7 @@ export class EventPulseScheduler {
       
       for (const job of queuedJobs) {
         // Check if user has opted out of optional announcements
-        if (job.user_id && job.notification_type === 'ANNOUNCEMENT') {
+        if (job.user_id && ['ANNOUNCEMENT', 'NEW_EVENT_ANNOUNCEMENT'].includes(job.notification_type)) {
           const prefs = serverDb.getNotificationPreferences(job.user_id);
           if (!prefs.email_announcements) {
             serverDb.updateOutboxStatus(job.id, 'SUPPRESSED', undefined, undefined, 'User opted out of optional announcements');

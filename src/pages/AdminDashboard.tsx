@@ -222,7 +222,7 @@ export const AdminDashboard: React.FC = () => {
     },
     {
       id: 'outbox',
-      label: 'Email Dispatcher (Resend)',
+      label: 'Email messages',
       icon: Mail,
       badge: outboxJobs.length,
       badgeVariant: 'teal',
