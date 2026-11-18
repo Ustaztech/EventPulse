@@ -314,7 +314,7 @@ export const OrganizerDashboard: React.FC = () => {
     },
     {
       id: 'mail',
-      label: 'Email Dispatcher (Resend)',
+      label: 'Email messages',
       icon: Mail,
       badge: 'Live',
       badgeVariant: 'teal',

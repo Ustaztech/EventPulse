@@ -28,6 +28,7 @@ import { Event, EventFeedback } from '../lib/types';
 import { useAuth } from '../lib/AuthContext';
 import { MapPreviewModal } from '../components/MapPreviewModal';
 import { DigitalTicketModal } from '../components/DigitalTicketModal';
+import { CalendarExportLinks } from '../components/CalendarExportLinks';
 
 export const EventDetailsPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -346,6 +347,8 @@ export const EventDetailsPage: React.FC = () => {
             </p>
           </div>
 
+          <CalendarExportLinks event={event} compact />
+
           {/* Capacity Progress Box Matching Image 5 */}
           <div className="bg-slate-50 dark:bg-[#0B132B] border border-slate-200/70 dark:border-navy-light/40 rounded-2xl p-4 space-y-2.5">
             <div className="flex items-center justify-between">
@@ -586,6 +589,7 @@ export const EventDetailsPage: React.FC = () => {
                     <span>{copiedLink ? 'Copied Link!' : 'Share Event'}</span>
                   </button>
                 </div>
+                <CalendarExportLinks event={event} />
               </div>
             </div>
           </div>

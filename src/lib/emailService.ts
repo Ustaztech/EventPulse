@@ -1,19 +1,6 @@
 /**
- * EventPulse Automated Resend Email Service
- * Powered directly by Resend API (resend.com) using EVENTPULSE_MAILS_API_KEY.
- * Dispatches transactional emails to platform users' actual inboxes.
+ * EventPulse browser email client. Mail is always sent through the authenticated server endpoint.
  */
-
-export interface EmailProviderConfig {
-  provider: 'resend';
-  resendApiKey: string;
-  senderName: string;
-  senderEmail: string;
-  autoWelcome: boolean;
-  autoNewEvent: boolean;
-  autoApproaching: boolean;
-  autoHappeningNow: boolean;
-}
 
 export interface DispatchLogItem {
   id: string;
@@ -30,72 +17,31 @@ export interface DispatchLogItem {
   timestamp: string;
 }
 
-const CONFIG_STORAGE_KEY = 'eventpulse_resend_email_config_v3';
-const LOGS_STORAGE_KEY = 'eventpulse_resend_dispatch_logs_v3';
-
-const DEFAULT_CONFIG: EmailProviderConfig = {
-  provider: 'resend',
-  resendApiKey: '',
-  senderName: 'EventPulse',
-  senderEmail: 'support@eventpulse.com.ng',
-  autoWelcome: true,
-  autoNewEvent: true,
-  autoApproaching: true,
-  autoHappeningNow: true,
-};
-
 class EmailService {
-  public getConfig(): EmailProviderConfig {
-    if (typeof window === 'undefined') return DEFAULT_CONFIG;
-    try {
-      const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
-      if (stored) {
-        return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
-      }
-    } catch {
-      // fallback
+  constructor() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('eventpulse_resend_email_config_v3');
+      localStorage.removeItem('eventpulse_email_provider_config_v2');
+      localStorage.removeItem('eventpulse_resend_dispatch_logs_v3');
     }
-    return DEFAULT_CONFIG;
-  }
-
-  public saveConfig(config: EmailProviderConfig): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
   }
 
   public getLogs(): DispatchLogItem[] {
-    if (typeof window === 'undefined') return [];
-    try {
-      const stored = localStorage.getItem(LOGS_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    return [];
   }
 
   public addLog(item: Omit<DispatchLogItem, 'id' | 'timestamp'>): DispatchLogItem {
-    const logs = this.getLogs();
-    const newLog: DispatchLogItem = {
+    return {
       ...item,
       id: `disp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       timestamp: new Date().toISOString(),
     };
-    logs.unshift(newLog);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(logs.slice(0, 100)));
-    }
-    return newLog;
   }
 
-  public clearLogs(): void {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(LOGS_STORAGE_KEY);
-    }
-  }
+  public clearLogs(): void {}
 
   /**
-   * Dispatches an email to a real user email via Resend API.
-   * Uses EVENTPULSE_MAILS_API_KEY or backend relay.
+   * Sends mail only through the server. Provider credentials never enter the browser.
    */
   public async sendEmail(params: {
     to: string;
@@ -105,18 +51,16 @@ class EmailService {
     text?: string;
     category?: DispatchLogItem['category'];
   }): Promise<{ success: boolean; messageId?: string; error?: string; providerUsed: 'RESEND' }> {
-    const config = this.getConfig();
     const category = params.category || 'custom';
     const cleanText = params.text || params.html.replace(/<[^>]*>?/gm, '');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('eventpulse_auth_token') : null;
 
-    // 1. Try sending via backend /api/mail/send first (uses server-side EVENTPULSE_MAILS_API_KEY)
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('eventpulse_auth_token') : null;
       const resp = await fetch('/api/mail/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           to: params.to.trim(),
@@ -127,115 +71,38 @@ class EmailService {
           category,
         }),
       });
-
-      const resData = await resp.json().catch(() => ({}));
-      if (resp.ok && resData?.success) {
-        this.addLog({
-          recipientEmail: params.to,
-          recipientName: params.recipientName,
-          subject: params.subject,
-          bodyHtml: params.html,
-          bodyText: cleanText,
-          category,
-          provider: 'RESEND',
-          externalId: resData.messageId || `resend_${Date.now()}`,
-          status: 'DELIVERED',
-        });
-        return { success: true, messageId: resData.messageId, providerUsed: 'RESEND' };
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result?.success) {
+        throw new Error(result?.error || `Email could not be sent (HTTP ${resp.status}).`);
       }
-    } catch {
-      // Backend relay unavailable or offline; fall back to client-side direct Resend if client key provided
+
+      this.addLog({
+        recipientEmail: params.to,
+        recipientName: params.recipientName,
+        subject: params.subject,
+        bodyHtml: params.html,
+        bodyText: cleanText,
+        category,
+        provider: 'RESEND',
+        externalId: result.messageId,
+        status: 'QUEUED',
+      });
+      return { success: true, messageId: result.messageId, providerUsed: 'RESEND' };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Email service is unavailable.';
+      this.addLog({
+        recipientEmail: params.to,
+        recipientName: params.recipientName,
+        subject: params.subject,
+        bodyHtml: params.html,
+        bodyText: cleanText,
+        category,
+        provider: 'RESEND',
+        status: 'FAILED',
+        errorMessage: message,
+      });
+      return { success: false, error: message, providerUsed: 'RESEND' };
     }
-
-    // 2. Client-side direct Resend call if client key provided
-    const apiKey = config.resendApiKey?.trim();
-    if (apiKey && apiKey.length > 0) {
-      try {
-        const fromAddress = config.senderEmail && config.senderEmail.includes('@')
-          ? `${config.senderName} <${config.senderEmail}>`
-          : `${config.senderName} <onboarding@resend.dev>`;
-
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: fromAddress,
-            to: [params.to.trim()],
-            subject: params.subject,
-            html: params.html,
-            text: cleanText,
-          }),
-        });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (response.ok && data?.id) {
-          this.addLog({
-            recipientEmail: params.to,
-            recipientName: params.recipientName,
-            subject: params.subject,
-            bodyHtml: params.html,
-            bodyText: cleanText,
-            category,
-            provider: 'RESEND',
-            externalId: data.id,
-            status: 'DELIVERED',
-          });
-          return { success: true, messageId: data.id, providerUsed: 'RESEND' };
-        } else {
-          const errDetail = data?.message || data?.error || 'Resend API rejected dispatch request';
-          this.addLog({
-            recipientEmail: params.to,
-            recipientName: params.recipientName,
-            subject: params.subject,
-            bodyHtml: params.html,
-            bodyText: cleanText,
-            category,
-            provider: 'RESEND',
-            status: 'FAILED',
-            errorMessage: errDetail,
-          });
-          return { success: false, error: errDetail, providerUsed: 'RESEND' };
-        }
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Network error communicating with Resend';
-        this.addLog({
-          recipientEmail: params.to,
-          recipientName: params.recipientName,
-          subject: params.subject,
-          bodyHtml: params.html,
-          bodyText: cleanText,
-          category,
-          provider: 'RESEND',
-          status: 'FAILED',
-          errorMessage: errorMsg,
-        });
-        return { success: false, error: errorMsg, providerUsed: 'RESEND' };
-      }
-    }
-
-    // 3. Fallback: Log simulation when key is awaiting Vercel env injection
-    const simId = `resend_sim_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    this.addLog({
-      recipientEmail: params.to,
-      recipientName: params.recipientName,
-      subject: params.subject,
-      bodyHtml: params.html,
-      bodyText: cleanText,
-      category,
-      provider: 'RESEND',
-      externalId: simId,
-      status: 'DELIVERED',
-    });
-
-    return { 
-      success: true, 
-      messageId: simId, 
-      providerUsed: 'RESEND' 
-    };
   }
 
   /**

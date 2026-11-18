@@ -27,7 +27,7 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { api } from '../lib/api';
-import { emailService, EmailProviderConfig, DispatchLogItem } from '../lib/emailService';
+import { emailService, DispatchLogItem } from '../lib/emailService';
 
 interface EmailBroadcastHubProps {
   initialTab?: 'compose' | 'automated' | 'logs' | 'settings';
@@ -39,10 +39,6 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'compose' | 'automated' | 'logs' | 'settings'>(initialTab);
 
-  // Email Config State
-  const [config, setConfig] = useState<EmailProviderConfig>(() => emailService.getConfig());
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [customApiKey, setCustomApiKey] = useState(config.resendApiKey || '');
 
   // Compose State
   const [targetAudience, setTargetAudience] = useState<'ALL' | 'STUDENTS' | 'ORGANIZERS' | 'ADMINS' | 'EVENT_ATTENDEES' | 'CUSTOM'>('ALL');
@@ -132,18 +128,6 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
     return [];
   }, [targetAudience, selectedEventId, customEmails, users]);
 
-  // Handle Save Configuration
-  const handleSaveConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    const updated = {
-      ...config,
-      resendApiKey: customApiKey.trim(),
-    };
-    setConfig(updated);
-    emailService.saveConfig(updated);
-    showToast('Resend configuration updated successfully!');
-  };
-
   // Test Resend connection
   const handleTestConnection = async () => {
     if (!currentUser?.email) return;
@@ -155,13 +139,13 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           <div style="background: #0B2E81; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-weight: 800; display: inline-block; font-size: 13px;">
             EventPulse
           </div>
-          <h2 style="color: #0f172a; margin-top: 16px;">Resend API Delivery Verification</h2>
-          <p style="color: #475569; font-size: 14px;">
-            Hello <strong>${currentUser.name}</strong>, this email confirms that your Resend transactional mailing engine (configured with <code>EVENTPULSE_MAILS_API_KEY</code>) is working properly!
-          </p>
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px; color: #166534;">
-            &check; Resend API Handshake: Verified &amp; Accepted
-          </div>
+                <h2 style="color: #0f172a; margin-top: 16px;">Email delivery check</h2>
+                <p style="color: #475569; font-size: 14px;">
+                  Hello <strong>${currentUser.name}</strong>, this message confirms EventPulse can send email from the server.
+                </p>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px; color: #166534;">
+                  Test message accepted by the email service.
+                </div>
           <p style="font-size: 12px; color: #94a3b8; margin: 0;">
             EventPulse Campus Notifications &bull; support@eventpulse.com.ng
           </p>
@@ -171,7 +155,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
       const res = await emailService.sendEmail({
         to: currentUser.email,
         recipientName: currentUser.name,
-        subject: 'EventPulse: Resend API Connection Verified',
+        subject: 'EventPulse: Email delivery check',
         html: testHtml,
         category: 'custom',
       });
@@ -236,29 +220,13 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
       });
 
       if (res?.success) {
-        showToast(`Email broadcast dispatched to ${res.sent} recipients via Resend!`);
+        showToast(`Sent ${res.sent} emails${res.failed ? `; ${res.failed} could not be sent` : ''}.`);
       } else {
-        // Fallback to client-side batch
-        const batchRes = await emailService.sendBatchEmail({
-          recipients: resolvedRecipients,
-          subject,
-          html: compiledHtml,
-          text: messageBody,
-          category: 'custom',
-        });
-        showToast(`Dispatched to ${batchRes.sent} recipients!`);
+        showToast(`Email sending did not complete. ${res?.failed || 0} messages failed; check the message log.`);
       }
       refreshLogs();
-    } catch {
-      // Local fallback
-      await emailService.sendBatchEmail({
-        recipients: resolvedRecipients,
-        subject,
-        html: compiledHtml,
-        text: messageBody,
-        category: 'custom',
-      });
-      showToast(`Dispatched to ${resolvedRecipients.length} recipients!`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Email sending failed. Check your connection and message log.');
       refreshLogs();
     } finally {
       setIsSending(false);
@@ -269,12 +237,21 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
   const handleTriggerEventNotification = async (evt: any) => {
     setTriggeringEventId(evt.id);
     try {
-      const allCampusUsers = users.map(u => ({ email: u.email, name: u.name }));
-      const sentCount = await emailService.sendNewEventNotification(evt, allCampusUsers);
-      showToast(`Automated notification for "${evt.title}" dispatched to ${sentCount} campus users via Resend!`);
+      const res = await api.broadcastMail({
+        targetAudience: 'ALL',
+        subject: `New event: ${evt.title}`,
+        html: `<h2>New campus event</h2><p>${evt.title} is now open on EventPulse.</p><p>${evt.description || ''}</p><p><a href="${window.location.origin}/events/${evt.slug || evt.id}">View event details</a></p>`,
+        text: `${evt.title} is now open on EventPulse.`,
+        eventId: evt.id,
+      });
+      if (res.success) {
+        showToast(`Sent ${res.sent} event emails${res.failed ? `; ${res.failed} could not be sent` : ''}.`);
+      } else {
+        showToast(`Event email sending did not complete. ${res.failed} messages failed.`);
+      }
       refreshLogs();
     } catch (err: any) {
-      showToast(`Failed: ${err?.message || 'Error sending notification'}`);
+      showToast(err?.message || 'Event email sending failed. Check your connection and message log.');
     } finally {
       setTriggeringEventId(null);
     }
@@ -306,15 +283,14 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                Email Dispatcher & Automated Notifications
+                Email messages and event alerts
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                RESEND API ACTIVE
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/60 dark:text-blue-200 dark:border-blue-900">
+                Server email
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Powered by Resend API (via <code className="font-mono text-royal dark:text-turquoise font-bold">EVENTPULSE_MAILS_API_KEY</code>). Dispatches directly to platform users' actual emails.
+              Messages are sent through the secure server mail service. Delivery results appear in the message log.
             </p>
           </div>
         </div>
@@ -342,7 +318,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
             }`}
           >
             <Settings className="w-3.5 h-3.5" />
-            <span>Resend Settings</span>
+            <span>Email settings</span>
           </button>
         </div>
       </div>
@@ -401,7 +377,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
           }`}
         >
           <Key className="w-4 h-4" />
-          <span>Resend API Config</span>
+          <span>Email settings</span>
         </button>
       </div>
 
@@ -571,7 +547,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                   <span>
                     {isSending
                       ? 'Dispatching via Resend...'
-                      : `Dispatch Email to ${resolvedRecipients.length} Recipient${resolvedRecipients.length === 1 ? '' : 's'} via Resend`}
+                      : `Send email to ${resolvedRecipients.length} recipient${resolvedRecipients.length === 1 ? '' : 's'}`}
                   </span>
                 </button>
               </div>
@@ -670,7 +646,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                 <span className="font-bold block text-slate-900 dark:text-white text-sm">
                   Automatic Event Notification Engine
                 </span>
-                EventPulse triggers real transactional emails through Resend API automatically during key lifecycle events. No manual intervention required.
+                EventPulse sends account, registration, event-change, and reminder emails automatically.
               </div>
             </div>
 
@@ -927,10 +903,10 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
               <div>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-teal" />
-                  <span>Resend Transactional Email Delivery Setup</span>
+                  <span>Email delivery settings</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Powered exclusively by Resend API. In production on Vercel, the secret API key is read from the <code className="font-mono font-bold text-royal dark:text-turquoise">EVENTPULSE_MAILS_API_KEY</code> environment variable.
+                  Email credentials stay on the server and are never entered or stored in this browser.
                 </p>
               </div>
 
@@ -938,52 +914,21 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
                 <div className="p-4 bg-slate-50 dark:bg-navy-dark rounded-xl border border-slate-200 dark:border-navy-light/40 space-y-2 font-mono text-[11px]">
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
                     <span className="text-slate-400">Provider:</span>
-                    <strong className="text-[#0B2E81] dark:text-turquoise">Resend (resend.com)</strong>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
-                    <span className="text-slate-400">Vercel Environment Variable:</span>
-                    <span className="text-emerald-600 font-bold">EVENTPULSE_MAILS_API_KEY</span>
+                    <strong className="text-[#0B2E81] dark:text-turquoise">Secure server email</strong>
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-navy-light/20">
                     <span className="text-slate-400">Default Sender Identity:</span>
                     <span className="text-slate-700 dark:text-slate-300">EventPulse &lt;support@eventpulse.com.ng&gt;</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-slate-400">Status:</span>
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Active &amp; Ready
-                    </span>
+                    <span className="text-slate-400">Delivery status:</span>
+                    <span className="text-slate-600 dark:text-slate-300 font-semibold">Shown after sending a test email</span>
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveConfig} className="space-y-3 pt-2">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
-                    Override Resend API Key (Optional local override):
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showApiKey ? 'text' : 'password'}
-                      value={customApiKey}
-                      onChange={(e) => setCustomApiKey(e.target.value)}
-                      placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxxx"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-navy-light/60 bg-slate-50 dark:bg-[#111A33] text-xs font-mono pr-20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 hover:text-slate-800"
-                    >
-                      {showApiKey ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 rounded-xl bg-[#0B2E81] hover:bg-blue-900 text-white font-bold text-xs shadow-md"
-                  >
-                    Save Settings
-                  </button>
-                </form>
+                <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                  To send a test message, use the button above. If delivery fails, an administrator can check the message log and server email configuration. Never enter a mail password or API key here.
+                </p>
               </div>
             </div>
           </div>
