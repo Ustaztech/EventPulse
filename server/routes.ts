@@ -106,9 +106,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         return sendJson(res, 409, { error: 'An account with this email address already exists.' });
       }
 
-      // Check for Super Admin
-      const isSuperAdmin = email.trim().toLowerCase() === 'yahayazaid2021@gmail.com';
-      const assignedRole = isSuperAdmin ? 'ADMIN' : (userType === 'STAFF' ? 'STAFF' : 'STUDENT');
+      const assignedRole = userType === 'STAFF' ? 'STAFF' : 'STUDENT';
       const passwordHash = hashPassword(password);
       const verificationCode = generateVerificationCode();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -123,12 +121,12 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         faculty: faculty?.trim(),
         department: department?.trim(),
         phone: phone?.trim(),
-        verificationToken: isSuperAdmin ? undefined : verificationCode,
-        verificationTokenExpiresAt: isSuperAdmin ? undefined : expiresAt,
-        emailVerified: isSuperAdmin ? 1 : 0,
+        verificationToken: verificationCode,
+        verificationTokenExpiresAt: expiresAt,
+        emailVerified: 0,
       });
 
-      if (!isSuperAdmin) {
+      {
         // Queue email verification job
         serverDb.enqueueOutboxJob({
           recipientEmail: newUser.email,
@@ -176,11 +174,11 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
           faculty: newUser.faculty,
           department: newUser.department,
           phone: newUser.phone,
-          emailVerified: isSuperAdmin ? true : false,
+          emailVerified: false,
           createdAt: newUser.created_at,
         },
         token: sessionToken,
-        message: isSuperAdmin ? 'Administrator account created successfully.' : 'Account created. Verification code dispatched to your email.',
+        message: 'Account created. Verification code sent to your email.',
       });
     }
 
@@ -204,18 +202,6 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       // Account enumeration protection: identical error response
       if (!user || !verifyPassword(password, user.password_hash)) {
         return sendJson(res, 401, { error: 'Invalid email address or password. Please try again.' });
-      }
-
-      const isSuperAdmin = user.email.toLowerCase() === 'yahayazaid2021@gmail.com';
-      if (isSuperAdmin) {
-        if (user.role !== 'ADMIN') {
-          serverDb.updateUserRole(user.id, 'ADMIN');
-          user.role = 'ADMIN';
-        }
-        if (user.email_verified !== 1) {
-          serverDb.verifyUserEmail(user.id);
-          user.email_verified = 1;
-        }
       }
 
       resetRateLimit(rateKey);

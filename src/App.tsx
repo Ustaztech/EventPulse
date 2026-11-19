@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './lib/AuthContext';
 import { ThemeProvider } from './lib/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
-import { LoadingScreen } from './components/LoadingScreen';
-
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Pages
@@ -46,92 +44,60 @@ function AuthPageOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export function App() {
-  const [initialLoading, setInitialLoading] = useState(true);
+function DashboardHomeRedirect() {
+  const { currentUser } = useAuth();
+  return <Navigate to={getDefaultDashboardRoute(currentUser)} replace />;
+}
 
+function AppContent() {
+  const { isAuthReady } = useAuth();
+
+  if (!isAuthReady) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 dark:bg-navy-dark dark:text-slate-200" role="status" aria-live="polite">
+        <span>Loading your account…</span>
+      </main>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-navy-dark dark:text-slate-100 transition-colors duration-200">
+      <Navbar />
+      <main className="flex-1">
+        <Routes>
+          <Route path="/" element={<HomePageOrDashboard />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/events/:slug" element={<EventDetailsPage />} />
+          <Route path="/auth/login" element={<AuthPageOnly><LoginPage /></AuthPageOnly>} />
+          <Route path="/auth/admin-login" element={<Navigate to="/auth/login" replace />} />
+          <Route path="/auth/register" element={<AuthPageOnly><RegisterPage /></AuthPageOnly>} />
+          <Route path="/auth/verify" element={<VerifyEmailPage />} />
+          <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/dashboard" element={<DashboardHomeRedirect />} />
+          <Route path="/dashboard/student" element={<ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN']}><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/organizer" element={<ProtectedRoute allowedRoles={['ORGANIZER', 'ADMIN', 'SUPER_ADMIN']}><OrganizerDashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN']}><NotificationCenterPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN']}><ProfilePreferencesPage /></ProtectedRoute>} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export function App() {
   return (
     <ThemeProvider>
       <Router>
         <AuthProvider>
-          {initialLoading && (
-            <LoadingScreen 
-              message="Initializing EventPulse Campus Hub..."
-              isInitialBoot
-              onFinish={() => setInitialLoading(false)}
-            />
-          )}
-          <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-navy-dark dark:text-slate-100 transition-colors duration-200">
-            <Navbar />
-            <main className="flex-1">
-              <Routes>
-                {/* Homepage is accessible only when logged out; authenticated users are routed to their dashboard */}
-                <Route path="/" element={<HomePageOrDashboard />} />
-                <Route path="/explore" element={<ExplorePage />} />
-                <Route path="/events/:slug" element={<EventDetailsPage />} />
-                <Route path="/auth/login" element={<AuthPageOnly><LoginPage /></AuthPageOnly>} />
-                {/* Unified login: /auth/admin-login redirects to /auth/login */}
-                <Route path="/auth/admin-login" element={<Navigate to="/auth/login" replace />} />
-                <Route path="/auth/register" element={<AuthPageOnly><RegisterPage /></AuthPageOnly>} />
-                          <Route path="/auth/verify" element={<VerifyEmailPage />} />
-                <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
-                
-                {/* Dashboards with Role-Based Access Control */}
-                <Route 
-                  path="/dashboard/student" 
-                  element={
-                    <ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN']}>
-                      <StudentDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/dashboard/organizer" 
-                  element={
-                    <ProtectedRoute allowedRoles={['ORGANIZER', 'ADMIN']}>
-                      <OrganizerDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/dashboard/admin" 
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN']}>
-                      <AdminDashboard />
-                    </ProtectedRoute>
-                  } 
-                />
-                
-                {/* Notifications & Profile */}
-                <Route 
-                  path="/notifications" 
-                  element={
-                    <ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN']}>
-                      <NotificationCenterPage />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/profile" 
-                  element={
-                    <ProtectedRoute allowedRoles={['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN']}>
-                      <ProfilePreferencesPage />
-                    </ProtectedRoute>
-                  } 
-                />
-                
-                {/* Info & Legal */}
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/unsubscribe" element={<UnsubscribePage />} />
-
-                {/* Explicit 404 Not Found Page */}
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </main>
-            <Footer />
-          </div>
+          <AppContent />
         </AuthProvider>
       </Router>
     </ThemeProvider>
