@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { createClient } from '@supabase/supabase-js';
 import { serverDb } from './db.js';
 import { 
   hashPassword, 
@@ -54,13 +55,41 @@ function sendJson(res: ServerResponse, statusCode: number, data: any) {
   res.end(JSON.stringify(data));
 }
 
-// Helper to extract authenticated user from Authorization header
-function getAuthUser(req: IncomingMessage): any | null {
+const supabaseAdmin = process.env.SUPABASE_URL && (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
+
+function isAdminRole(role: string | undefined): boolean {
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+}
+
+// Accept both legacy server sessions and verified Supabase access tokens.
+async function getAuthUser(req: IncomingMessage): Promise<any | null> {
   const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
-  const res = verifySessionToken(token);
-  return res.valid ? res.payload : null;
+  const localSession = verifySessionToken(token);
+  if (localSession.valid) return localSession.payload;
+  if (!supabaseAdmin) return null;
+
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) return null;
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('role, display_name')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profileError) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: profile?.display_name || user.user_metadata?.name || user.email || 'EventPulse user',
+    role: profile?.role || 'STUDENT',
+  };
 }
 
 // Main HTTP request handler for /api/*
@@ -288,7 +317,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/auth/me
     if (pathname === '/api/auth/me' && method === 'GET') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) {
         return sendJson(res, 401, { error: 'Unauthorized session' });
       }
@@ -440,7 +469,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // PUT /api/auth/profile
     if (pathname === '/api/auth/profile' && method === 'PUT') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const body = await parseBody(req);
@@ -473,9 +502,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const sort = (query.get('sort') as any) || 'date-asc';
       const includeDrafts = query.get('includeDrafts') === 'true';
 
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       // Only organizers/admins can view their drafts
-      const allowDrafts = includeDrafts && authUser && (authUser.role === 'ORGANIZER' || authUser.role === 'ADMIN');
+      const allowDrafts = includeDrafts && authUser && (authUser.role === 'ORGANIZER' || isAdminRole(authUser.role));
 
       const events = serverDb.getEvents({
         search,
@@ -506,8 +535,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/events (Create Event)
     if (pathname === '/api/events' && method === 'POST') {
-      const authUser = getAuthUser(req);
-      if (!authUser || (authUser.role !== 'ORGANIZER' && authUser.role !== 'ADMIN')) {
+      const authUser = await getAuthUser(req);
+      if (!authUser || (authUser.role !== 'ORGANIZER' && !isAdminRole(authUser.role))) {
         return sendJson(res, 403, { error: 'Forbidden: Organiser or Administrator account required to create events.' });
       }
 
@@ -523,7 +552,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       }
 
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString().slice(-4);
-      const newStatus = authUser.role === 'ADMIN' && body.status === 'PUBLISHED' ? 'PUBLISHED' : (body.asDraft ? 'DRAFT' : 'PENDING_APPROVAL');
+      const newStatus = isAdminRole(authUser.role) && body.status === 'PUBLISHED' ? 'PUBLISHED' : (body.asDraft ? 'DRAFT' : 'PENDING_APPROVAL');
 
       const createdEvent = serverDb.createEvent({
         title: title.trim(),
@@ -606,14 +635,14 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // PUT /api/events/:id (Edit Event)
     if (pathname.startsWith('/api/events/') && method === 'PUT') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const eventId = pathname.slice('/api/events/'.length);
       const event = serverDb.getEventById(eventId);
       if (!event) return sendJson(res, 404, { error: 'Event not found.' });
 
-      if (authUser.role !== 'ADMIN' && event.organizer_id !== authUser.id) {
+      if (!isAdminRole(authUser.role) && event.organizer_id !== authUser.id) {
         return sendJson(res, 403, { error: 'Forbidden: You can only edit your own events.' });
       }
 
@@ -686,7 +715,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/events/:id/status (Approval, Rejection, Cancellation)
     if (pathname.includes('/status') && method === 'POST') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const parts = pathname.split('/');
@@ -698,12 +727,12 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const { status, feedback } = body;
 
       // Only admins can approve or reject proposals
-      if ((status === 'PUBLISHED' || status === 'REJECTED' || status === 'RETURNED_FOR_REVISION') && authUser.role !== 'ADMIN') {
+      if ((status === 'PUBLISHED' || status === 'REJECTED' || status === 'RETURNED_FOR_REVISION') && !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Only administrators can approve or reject event proposals.' });
       }
 
       // Organizers can cancel their own events; admins can cancel any
-      if (status === 'CANCELLED' && authUser.role !== 'ADMIN' && event.organizer_id !== authUser.id) {
+      if (status === 'CANCELLED' && !isAdminRole(authUser.role) && event.organizer_id !== authUser.id) {
         return sendJson(res, 403, { error: 'Forbidden: Cannot cancel this event.' });
       }
 
@@ -792,7 +821,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/events/:id/register
     if (pathname.endsWith('/register') && method === 'POST') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) {
         return sendJson(res, 401, { error: 'You must be signed in to reserve an event pass.' });
       }
@@ -851,7 +880,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/events/:id/unregister
     if (pathname.endsWith('/unregister') && method === 'POST') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const parts = pathname.split('/');
@@ -868,7 +897,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/registrations/my
     if (pathname === '/api/registrations/my' && method === 'GET') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const registrations = serverDb.getRegistrationsByUserId(authUser.id);
@@ -877,14 +906,14 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/registrations/event/:eventId
     if (pathname.startsWith('/api/registrations/event/') && method === 'GET') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const eventId = pathname.slice('/api/registrations/event/'.length);
       const event = serverDb.getEventById(eventId);
       if (!event) return sendJson(res, 404, { error: 'Event not found.' });
 
-      if (authUser.role !== 'ADMIN' && event.organizer_id !== authUser.id) {
+      if (!isAdminRole(authUser.role) && event.organizer_id !== authUser.id) {
         return sendJson(res, 403, { error: 'Forbidden: You can only view attendee records for your own events.' });
       }
 
@@ -894,8 +923,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/registrations/scan-qr
     if (pathname === '/api/registrations/scan-qr' && method === 'POST') {
-      const authUser = getAuthUser(req);
-      if (!authUser || (authUser.role !== 'ORGANIZER' && authUser.role !== 'ADMIN')) {
+      const authUser = await getAuthUser(req);
+      if (!authUser || (authUser.role !== 'ORGANIZER' && !isAdminRole(authUser.role))) {
         return sendJson(res, 403, { error: 'Forbidden: Only accredited organizers or admins can scan tickets.' });
       }
 
@@ -903,7 +932,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const { code } = body;
       if (!code) return sendJson(res, 400, { error: 'Ticket pass code is required.' });
 
-      const scanResult = serverDb.scanQrPass(code.trim(), authUser.id, authUser.role === 'ADMIN');
+      const scanResult = serverDb.scanQrPass(code.trim(), authUser.id, isAdminRole(authUser.role));
       if (!scanResult.success) {
         return sendJson(res, 400, { error: scanResult.error });
       }
@@ -919,7 +948,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/organizers/apply
     if (pathname === '/api/organizers/apply' && method === 'POST') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const body = await parseBody(req);
@@ -943,11 +972,11 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/organizers/applications
     if (pathname === '/api/organizers/applications' && method === 'GET') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       // Admins see all; users see own
-      const apps = authUser.role === 'ADMIN'
+      const apps = isAdminRole(authUser.role)
         ? serverDb.getOrganiserApplications()
         : serverDb.getOrganiserApplications(authUser.id);
 
@@ -956,8 +985,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/organizers/applications/:id/review
     if (pathname.includes('/review') && method === 'POST') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Only administrators can review organiser applications.' });
       }
 
@@ -1009,7 +1038,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/notifications
     if (pathname === '/api/notifications' && method === 'GET') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const notifications = serverDb.getInAppNotifications(authUser.id);
@@ -1018,7 +1047,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/notifications/mark-read
     if (pathname === '/api/notifications/mark-read' && method === 'POST') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const body = await parseBody(req);
@@ -1032,7 +1061,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/notifications/preferences
     if (pathname === '/api/notifications/preferences' && method === 'GET') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const prefs = serverDb.getNotificationPreferences(authUser.id);
@@ -1041,7 +1070,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // PUT /api/notifications/preferences
     if (pathname === '/api/notifications/preferences' && method === 'PUT') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'Unauthorized' });
 
       const body = await parseBody(req);
@@ -1082,7 +1111,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         return sendJson(res, 400, { error: 'Name, email, and message are required.' });
       }
 
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       const ticket = serverDb.createSupportTicket({
         userId: authUser?.id,
         name: name.trim(),
@@ -1102,8 +1131,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/support/tickets
     if (pathname === '/api/support/tickets' && method === 'GET') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1113,8 +1142,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // PUT /api/support/tickets/:id
     if (pathname.startsWith('/api/support/tickets/') && method === 'PUT') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1132,7 +1161,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/events/:id/feedback
     if (pathname.includes('/feedback') && method === 'POST') {
-      const authUser = getAuthUser(req);
+      const authUser = await getAuthUser(req);
       if (!authUser) return sendJson(res, 401, { error: 'You must be signed in to submit feedback.' });
 
       const parts = pathname.split('/');
@@ -1172,8 +1201,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/admin/users
     if (pathname === '/api/admin/users' && method === 'GET') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1183,8 +1212,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // PUT /api/admin/users/:id/role
     if (pathname.includes('/role') && method === 'PUT') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1203,10 +1232,26 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       return sendJson(res, 200, { success: true, message: `User role changed to ${role}` });
     }
 
+    // POST /api/admin/outbox/:id/retry
+    if (pathname.startsWith('/api/admin/outbox/') && pathname.endsWith('/retry') && method === 'POST') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
+        return sendJson(res, 403, { error: 'Administrator access is required.' });
+      }
+
+      const jobId = decodeURIComponent(pathname.split('/')[4] || '');
+      if (!jobId || !serverDb.retryOutboxJob(jobId)) {
+        return sendJson(res, 409, { error: 'Only failed emails can be retried.' });
+      }
+      serverDb.logAudit(authUser.id, authUser.name, 'EMAIL_RETRY', 'Email', jobId, 'Retried a failed email.', clientIp);
+      void scheduler.tick();
+      return sendJson(res, 200, { success: true, message: 'Email added back to the delivery queue.' });
+    }
+
     // GET /api/admin/outbox
     if (pathname === '/api/admin/outbox' && method === 'GET') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1216,8 +1261,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/admin/audit-logs
     if (pathname === '/api/admin/audit-logs' && method === 'GET') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1227,8 +1272,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // GET /api/admin/participation-reports
     if (pathname === '/api/admin/participation-reports' && method === 'GET') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1244,8 +1289,8 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // POST /api/categories
     if (pathname === '/api/categories' && method === 'POST') {
-      const authUser = getAuthUser(req);
-      if (!authUser || authUser.role !== 'ADMIN') {
+      const authUser = await getAuthUser(req);
+      if (!authUser || !isAdminRole(authUser.role)) {
         return sendJson(res, 403, { error: 'Forbidden: Administrator access required.' });
       }
 
@@ -1260,39 +1305,50 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       return sendJson(res, 200, { venues });
     }
 
-    // POST /api/mail/send (Direct transactional email via Resend)
+    // POST /api/mail/send (authenticated transactional email with an outbox record)
     if (pathname === '/api/mail/send' && method === 'POST') {
-      const authUser = getAuthUser(req);
-      if (!authUser) return sendJson(res, 401, { error: 'Unauthorized: Authentication required.' });
+      const authUser = await getAuthUser(req);
+      if (!authUser) return sendJson(res, 401, { error: 'Please sign in again before sending email.' });
+      if (!['ADMIN', 'SUPER_ADMIN', 'ORGANIZER'].includes(authUser.role)) {
+        return sendJson(res, 403, { error: 'Only administrators and event organizers can send email.' });
+      }
 
       const body = await parseBody(req);
-      const { to, recipientName, subject, html, text, category } = body;
+      const to = typeof body.to === 'string' ? body.to.trim() : '';
+      const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
+      const html = typeof body.html === 'string' ? body.html : '';
+      const text = typeof body.text === 'string' ? body.text : '';
+      const recipientName = typeof body.recipientName === 'string' ? body.recipientName.slice(0, 120) : '';
+      const category = typeof body.category === 'string' ? body.category : 'custom';
 
-      if (!to || !subject || !html) {
-        return sendJson(res, 400, { error: 'Recipient email, subject, and content are required.' });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || !subject || subject.length > 200 || !html || html.length > 200_000) {
+        return sendJson(res, 400, { error: 'Enter a valid recipient, a subject under 200 characters, and email content.' });
       }
 
-      const result = await sendTransactionalEmail({
-        to,
-        recipientName,
+      const job = serverDb.enqueueOutboxJob({
+        recipientEmail: to,
+        recipientName: recipientName || to,
         subject,
         bodyHtml: html,
-        bodyText: text,
-        category: category || 'custom',
+        bodyText: text || html.replace(/<[^>]*>?/gm, '').trim(),
+        notificationType: 'TEST_EMAIL',
+        userId: authUser.id,
+        idempotencyKey: `mail-send-${authUser.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       });
+      const result = await sendTransactionalEmail({ to, recipientName, subject, bodyHtml: html, bodyText: text, category });
+      serverDb.updateOutboxStatus(job.id, result.success ? result.status : 'FAILED', result.provider, result.providerMessageId, result.error);
 
       if (result.success) {
-        serverDb.logAudit(authUser.id, authUser.name, 'MAIL_DISPATCH', 'Email', result.providerMessageId || 'msg', `Sent email to ${to}: ${subject}`, clientIp);
-        return sendJson(res, 200, { success: true, messageId: result.providerMessageId, provider: result.provider });
-      } else {
-        return sendJson(res, 400, { success: false, error: result.error || 'Failed to dispatch email' });
+        serverDb.logAudit(authUser.id, authUser.name, 'MAIL_DISPATCH', 'Email', result.providerMessageId || job.id, `Sent email to ${to}: ${subject}`, clientIp);
+        return sendJson(res, 200, { success: true, messageId: result.providerMessageId, provider: result.provider, jobId: job.id, status: result.status });
       }
+      return sendJson(res, 502, { success: false, jobId: job.id, error: result.error || 'The email service could not accept this message.' });
     }
 
     // POST /api/mail/broadcast (Campaign dispatcher to users/attendees)
     if (pathname === '/api/mail/broadcast' && method === 'POST') {
-      const authUser = getAuthUser(req);
-      if (!authUser || (authUser.role !== 'ADMIN' && authUser.role !== 'ORGANIZER')) {
+      const authUser = await getAuthUser(req);
+      if (!authUser || (!isAdminRole(authUser.role) && authUser.role !== 'ORGANIZER')) {
         return sendJson(res, 403, { error: 'Forbidden: Only administrators and organizers can broadcast emails.' });
       }
 

@@ -2,6 +2,9 @@
  * EventPulse browser email client. Mail is always sent through the authenticated server endpoint.
  */
 
+import { getStoredToken } from './api';
+import { supabase } from './supabase';
+
 export interface DispatchLogItem {
   id: string;
   recipientEmail: string;
@@ -53,9 +56,12 @@ class EmailService {
   }): Promise<{ success: boolean; messageId?: string; error?: string; providerUsed: 'RESEND' }> {
     const category = params.category || 'custom';
     const cleanText = params.text || params.html.replace(/<[^>]*>?/gm, '');
-    const token = typeof window !== 'undefined' ? localStorage.getItem('eventpulse_auth_token') : null;
-
     try {
+      const storedToken = getStoredToken();
+      const { data: sessionData } = storedToken
+        ? { data: { session: null } }
+        : await supabase?.auth.getSession() ?? { data: { session: null } };
+      const token = storedToken || sessionData.session?.access_token;
       const resp = await fetch('/api/mail/send', {
         method: 'POST',
         headers: {

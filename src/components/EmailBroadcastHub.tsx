@@ -128,7 +128,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
     return [];
   }, [targetAudience, selectedEventId, customEmails, users]);
 
-  // Test Resend connection
+  // Send a branded test message to the signed-in administrator.
   const handleTestConnection = async () => {
     if (!currentUser?.email) return;
     setIsTestingConnection(true);
@@ -161,7 +161,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
       });
 
       if (res.success) {
-        showToast(`Verification email successfully dispatched to ${currentUser.email}!`);
+        showToast(`Test email accepted by the email service for ${currentUser.email}. Check that inbox to confirm delivery.`);
       } else {
         showToast(`Error: ${res.error || 'Failed to dispatch test message'}`);
       }

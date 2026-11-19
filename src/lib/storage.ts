@@ -13,7 +13,7 @@ import {
   NotificationPreferences 
 } from './types';
 import { CATEGORY_DEFINITIONS } from './nsuk-data';
-import { api, getStoredToken } from './api';
+import { api } from './api';
 import { supabase } from './supabase';
 import { DEMO_EVENTS } from './seed-events';
 
@@ -131,7 +131,7 @@ class EventPulseStorage {
       }
 
       // 4. If signed in, fetch user registrations, notifications, and preferences
-      if (this.currentUser && getStoredToken()) {
+      if (this.currentUser) {
         const regsRes = await api.getMyRegistrations().catch(() => ({ registrations: [] }));
         if (regsRes?.registrations) {
           this.registrations = regsRes.registrations.map(this.mapRegRow);

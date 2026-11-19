@@ -1279,6 +1279,16 @@ class EventPulseDatabase {
     return this.db.prepare('SELECT * FROM email_outbox ORDER BY created_at DESC LIMIT ?').all(limit) as unknown as unknown as EmailOutboxRow[];
   }
 
+  public retryOutboxJob(id: string): boolean {
+    const now = new Date().toISOString();
+    const res = this.db.prepare(`
+      UPDATE email_outbox
+      SET status = 'QUEUED', error_message = NULL, updated_at = ?
+      WHERE id = ? AND status = 'FAILED'
+    `).run(now, id);
+    return res.changes > 0;
+  }
+
   public updateOutboxStatus(id: string, status: EmailOutboxRow['status'], provider?: string, providerMessageId?: string, errorMessage?: string): boolean {
     const now = new Date().toISOString();
     const res = this.db.prepare(`
