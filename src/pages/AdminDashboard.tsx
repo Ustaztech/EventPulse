@@ -28,6 +28,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { api } from '../lib/api';
 import { Role, SupportTicket } from '../lib/types';
+import { canAccessAdmin } from '../lib/rbac';
 import { DashboardLayout, DashboardNavItem } from '../components/DashboardLayout';
 import { EmailBroadcastHub } from '../components/EmailBroadcastHub';
 import { OutboxInspectorModal } from '../components/OutboxInspectorModal';
@@ -70,7 +71,7 @@ export const AdminDashboard: React.FC = () => {
     loadAdminData();
   }, []);
 
-  if (!currentUser || currentUser.role !== 'ADMIN') {
+  if (!currentUser || !canAccessAdmin(currentUser)) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <h2 className="text-2xl font-black text-slate-800 dark:text-white">Administrator Access Required</h2>
@@ -414,7 +415,7 @@ export const AdminDashboard: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          u.role === 'ADMIN' ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300' :
+                          (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300' :
                           u.role === 'ORGANIZER' ? 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300' :
                           u.role === 'STAFF' ? 'bg-blue-100 dark:bg-royal/30 text-royal dark:text-turquoise' : 'bg-slate-100 dark:bg-navy-light/40 text-slate-700 dark:text-slate-300'
                         }`}>

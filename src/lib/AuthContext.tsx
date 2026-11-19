@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 
 interface AuthContextType {
   currentUser: User | null;
+  isAuthReady: boolean;
   unreadCount: number;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
   adminLogin: (email: string, password: string, mfaCode?: string) => Promise<{ success: boolean; error?: string }>;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => db.getCurrentUser());
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   const updateUnread = (userId: string) => {
@@ -42,19 +44,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let active = true;
-    db.init().then(() => {
+    void db.init().then(() => {
       if (!active) return;
       const user = db.getCurrentUser();
       setCurrentUser(user);
       if (user) updateUnread(user.id);
+    }).catch(() => {
+      if (active) setCurrentUser(null);
+    }).finally(() => {
+      if (active) setIsAuthReady(true);
     });
 
     const { data: { subscription } } = supabase?.auth.onAuthStateChange((_event, session) => {
       const user = db.setAuthenticatedUser(session?.user ?? null);
       if (!active) return;
       setCurrentUser(user);
-      if (user) updateUnread(user.id);
-      else setUnreadCount(0);
+      if (user) {
+        void db.syncFromBackend().then(() => {
+          if (!active) return;
+          const refreshedUser = db.getCurrentUser();
+          setCurrentUser(refreshedUser);
+          if (refreshedUser) updateUnread(refreshedUser.id);
+        });
+      } else {
+        setUnreadCount(0);
+      }
     }) ?? { data: { subscription: null } };
 
     return () => {
@@ -112,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, unreadCount, login, adminLogin, logout, register, refreshUserData }}>
+    <AuthContext.Provider value={{ currentUser, isAuthReady, unreadCount, login, adminLogin, logout, register, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

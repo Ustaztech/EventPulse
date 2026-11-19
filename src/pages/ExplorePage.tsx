@@ -15,12 +15,32 @@ import {
   Building,
   GraduationCap,
   Layers,
-  Filter
+  Filter,
+  LocateFixed,
+  LoaderCircle
 } from 'lucide-react';
 import { db } from '../lib/storage';
 import { EventCard } from '../components/EventCard';
 import { CATEGORY_DEFINITIONS, NSUK_CAMPUSES } from '../lib/nsuk-data';
 import { Event } from '../lib/types';
+
+interface UserLocation {
+  latitude: number;
+  longitude: number;
+}
+
+const getDistanceKm = (from: UserLocation, to: UserLocation) => {
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
+  const latitudeDelta = radians(to.latitude - from.latitude);
+  const longitudeDelta = radians(to.longitude - from.longitude);
+  const value =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(radians(from.latitude)) *
+      Math.cos(radians(to.latitude)) *
+      Math.sin(longitudeDelta / 2) ** 2;
+
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+};
 
 export const ExplorePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,6 +67,10 @@ export const ExplorePage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [eventsList, setEventsList] = useState<Event[]>(() => db.getEvents());
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState('');
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(25);
 
   // Accordion toggle states
   const [catOpen, setCatOpen] = useState(true);
@@ -86,6 +110,38 @@ export const ExplorePage: React.FC = () => {
     await db.syncFromBackend();
     setEventsList(db.getEvents());
     setIsLoading(false);
+  };
+
+  const requestNearbyEvents = () => {
+    if (userLocation) {
+      setUserLocation(null);
+      setLocationMessage('Nearby location filtering is off.');
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setLocationMessage('Location access is not supported by this browser.');
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationMessage('');
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationMessage('Showing physical and hybrid events near your current location.');
+        setIsLocating(false);
+      },
+      (error) => {
+        setLocationMessage(
+          error.code === error.PERMISSION_DENIED
+            ? 'Location permission was denied. You can enable it in your browser settings.'
+            : 'We could not get your location. Check your device settings and try again.'
+        );
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
   };
 
   useEffect(() => {
@@ -148,6 +204,14 @@ export const ExplorePage: React.FC = () => {
           if (selectedNearby === 'nasarawa' && !matchesNasarawa) return false;
         }
 
+        if (userLocation) {
+          if (evt.format === 'ONLINE' || evt.latitude == null || evt.longitude == null) return false;
+          if (
+            getDistanceKm(userLocation, { latitude: evt.latitude, longitude: evt.longitude }) >
+            nearbyRadiusKm
+          ) return false;
+        }
+
         // Category Filter
         if (selectedCategory !== 'all') {
           if (evt.categoryId !== selectedCategory && evt.categorySlug !== selectedCategory) {
@@ -179,6 +243,15 @@ export const ExplorePage: React.FC = () => {
         return true;
       })
       .sort((a, b) => {
+        if (userLocation) {
+          const distanceA = a.latitude == null || a.longitude == null
+            ? Number.POSITIVE_INFINITY
+            : getDistanceKm(userLocation, { latitude: a.latitude, longitude: a.longitude });
+          const distanceB = b.latitude == null || b.longitude == null
+            ? Number.POSITIVE_INFINITY
+            : getDistanceKm(userLocation, { latitude: b.latitude, longitude: b.longitude });
+          return distanceA - distanceB;
+        }
         if (selectedSort === 'date-asc') {
           return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
         }
@@ -203,6 +276,8 @@ export const ExplorePage: React.FC = () => {
     selectedFormat,
     selectedNearby,
     selectedSort,
+    userLocation,
+    nearbyRadiusKm,
   ]);
 
   const clearFilters = () => {
@@ -214,6 +289,8 @@ export const ExplorePage: React.FC = () => {
     setSelectedFormat('all');
     setSelectedNearby('all');
     setSelectedSort('date-asc');
+    setUserLocation(null);
+    setLocationMessage('');
     setSearchParams({});
   };
 
@@ -224,7 +301,8 @@ export const ExplorePage: React.FC = () => {
     selectedCampus !== 'all' ||
     selectedOrganizer !== 'all' ||
     selectedFormat !== 'all' ||
-    selectedNearby !== 'all';
+    selectedNearby !== 'all' ||
+    userLocation !== null;
 
   // Calendar Helpers
   const currentYear = currentMonthDate.getFullYear();
@@ -248,7 +326,7 @@ export const ExplorePage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left Filter Sidebar (3 cols) */}
-        <aside className="lg:col-span-3 space-y-5">
+        <aside className="order-2 space-y-5 lg:order-1 lg:col-span-3">
           <div className="bg-white dark:bg-[#111A33] rounded-2xl border border-slate-200/90 dark:border-navy-light/40 p-5 shadow-xs space-y-6">
             
             {/* Search Events input */}
@@ -435,7 +513,7 @@ export const ExplorePage: React.FC = () => {
         </aside>
 
         {/* Right Main Content Area (9 cols) */}
-        <main className="lg:col-span-9 space-y-6">
+        <main className="order-1 space-y-6 lg:order-2 lg:col-span-9">
           
           {/* Main Title & Subtitle matching Image 4 */}
           <div>
@@ -468,7 +546,38 @@ export const ExplorePage: React.FC = () => {
                   {location.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={requestNearbyEvents}
+                disabled={isLocating}
+                aria-pressed={Boolean(userLocation)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-wait disabled:opacity-70 ${
+                  userLocation
+                    ? 'border-teal-600 bg-teal-600 text-white dark:border-teal-400 dark:bg-teal-400 dark:text-navy'
+                    : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200'
+                }`}
+              >
+                {isLocating ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />}
+                {isLocating ? 'Finding you…' : userLocation ? 'Nearby is on' : 'Use my location'}
+              </button>
+              {userLocation && (
+                <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  <span className="sr-only">Search radius</span>
+                  <select
+                    value={nearbyRadiusKm}
+                    onChange={(event) => setNearbyRadiusKm(Number(event.target.value))}
+                    aria-label="Nearby event search radius"
+                    className="rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs dark:border-navy-light dark:bg-[#0B132B] dark:text-slate-200"
+                  >
+                    {[5, 10, 25, 50].map((radius) => (
+                      <option key={radius} value={radius}>{radius} km</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <span className="sr-only" role="status" aria-live="polite">{locationMessage}</span>
             </div>
+            {locationMessage && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400" role="status">{locationMessage}</p>}
           </div>
 
           {/* Search, Sort, and View Controls matching Image 4 */}
@@ -553,10 +662,14 @@ export const ExplorePage: React.FC = () => {
                     <Search className="w-6 h-6" />
                   </div>
                   <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                    No events matched your filters
+                    {userLocation && eventsList.some((event) => event.format !== 'ONLINE' && (event.latitude == null || event.longitude == null))
+                      ? 'No nearby events with mapped locations yet'
+                      : 'No events matched your filters'}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                    Try adjusting your search criteria, clearing category filters, or selecting any date.
+                    {userLocation && eventsList.some((event) => event.format !== 'ONLINE' && (event.latitude == null || event.longitude == null))
+                      ? 'Nearby search needs event coordinates. Organizers can add a venue location when creating or editing an event.'
+                      : 'Try adjusting your search criteria, clearing category filters, or selecting any date.'}
                   </p>
                   {hasActiveFilters && (
                     <button
@@ -570,7 +683,13 @@ export const ExplorePage: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredEvents.map((evt) => (
-                    <EventCard key={evt.id} event={evt} />
+                    <EventCard
+                      key={evt.id}
+                      event={evt}
+                      distanceKm={userLocation && evt.latitude != null && evt.longitude != null
+                        ? getDistanceKm(userLocation, { latitude: evt.latitude, longitude: evt.longitude })
+                        : undefined}
+                    />
                   ))}
                 </div>
               )}

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Mail, RefreshCw, Send, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight } from 'lucide-react';
 import { EmailOutboxJob } from '../lib/types';
 import { db } from '../lib/storage';
+import { api } from '../lib/api';
+import { emailService } from '../lib/emailService';
 
 interface OutboxInspectorModalProps {
   isOpen: boolean;
@@ -13,47 +15,82 @@ export const OutboxInspectorModal: React.FC<OutboxInspectorModalProps> = ({ isOp
   const [selectedJob, setSelectedJob] = useState<EmailOutboxJob | null>(null);
   const [testEmail, setTestEmail] = useState('');
   const [testSuccess, setTestSuccess] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   if (!isOpen) return null;
 
-  const refreshJobs = () => {
-    setJobs([...db.getOutboxJobs()]);
+  const refreshJobs = async () => {
+    try {
+      const { outbox } = await api.getAdminOutbox();
+      setJobs(outbox.map((job: any) => ({
+        id: job.id,
+        recipientEmail: job.recipient_email,
+        recipientName: job.recipient_name,
+        subject: job.subject,
+        bodyHtml: job.body_html,
+        bodyText: job.body_text,
+        notificationType: job.notification_type,
+        eventId: job.event_id || undefined,
+        userId: job.user_id || undefined,
+        scheduledFor: job.scheduled_for,
+        status: job.status,
+        attemptCount: job.attempt_count,
+        maxAttempts: job.max_attempts,
+        lastAttemptAt: job.last_attempt_at || undefined,
+        errorMessage: job.error_message || undefined,
+        idempotencyKey: job.idempotency_key,
+        createdAt: job.created_at,
+        updatedAt: job.updated_at,
+      })));
+    } catch {
+      setJobs([...db.getOutboxJobs()]);
+    }
   };
 
-  const handleRetry = (jobId: string) => {
-    db.retryOutboxJob(jobId);
-    setTimeout(refreshJobs, 1200);
+  const handleRetry = async (jobId: string) => {
+    setTestError(null);
+    try {
+      await api.retryOutboxJob(jobId);
+      await refreshJobs();
+    } catch (error) {
+      setTestError(error instanceof Error ? error.message : 'Could not retry this email.');
+    }
   };
 
-  const handleSendTest = (e: React.FormEvent) => {
+  const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testEmail) return;
+    if (!testEmail.trim() || isSendingTest) return;
 
-    db.enqueueOutboxJob({
-      recipientEmail: testEmail,
-      recipientName: 'Campus Test Recipient',
-      subject: 'Test Announcement: EventPulse Delivery Check',
-      bodyHtml: `
-        <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #cbd5e1;border-radius:12px;">
-          <h2 style="color:#1E40AF;">EventPulse - Email Delivery Test</h2>
-          <p>This is a transactional email test dispatched from the EventPulse Outbox Engine.</p>
-          <div style="background:#f0fdf4;padding:12px;border-radius:6px;color:#166534;">
-            Status: Connection Active & Verified.
+    setIsSendingTest(true);
+    setTestSuccess(false);
+    setTestError(null);
+    try {
+      const result = await emailService.sendEmail({
+        to: testEmail.trim(),
+        recipientName: 'EventPulse email test',
+        subject: 'EventPulse: Branded email delivery test',
+        html: `
+          <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:28px;color:#0f172a;">
+            <span style="display:inline-block;background:#1d4ed8;color:#fff;padding:8px 14px;border-radius:8px;font-weight:800;">EventPulse</span>
+            <h1 style="font-size:22px;margin:24px 0 12px;">Your email test is working</h1>
+            <p style="line-height:1.6;color:#475569;">This branded test was sent through the EventPulse email service. If you received it, delivery to this address is working.</p>
+            <p style="margin-top:24px;font-size:12px;color:#64748b;">EventPulse Campus Events · support@eventpulse.com.ng</p>
           </div>
-          <p style="font-size:12px;color:#64748b;margin-top:20px;">support@eventpulse.com.ng</p>
-        </div>
-      `,
-      bodyText: 'EventPulse Email Delivery Test. Connection Active & Verified.',
-      notificationType: 'ANNOUNCEMENT',
-      idempotencyKey: `test-outbox-${Date.now()}`
-    });
+        `,
+        text: 'EventPulse branded email test. If you received this message, email delivery to this address is working.',
+        category: 'custom',
+      });
 
-    setTestSuccess(true);
-    setTestEmail('');
-    setTimeout(() => {
-      setTestSuccess(false);
-      refreshJobs();
-    }, 1500);
+      if (!result.success) throw new Error(result.error || 'The email service could not accept this message.');
+      setTestSuccess(true);
+      setTestEmail('');
+      await refreshJobs();
+    } catch (error) {
+      setTestError(error instanceof Error ? error.message : 'Could not send the test email.');
+    } finally {
+      setIsSendingTest(false);
+    }
   };
 
   return (
@@ -84,29 +121,34 @@ export const OutboxInspectorModal: React.FC<OutboxInspectorModalProps> = ({ isOp
 
         {/* Test Dispatch Bar */}
         <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <form onSubmit={handleSendTest} className="flex items-center gap-2 flex-1 max-w-md">
+          <form onSubmit={handleSendTest} aria-label="Send a branded test email" className="flex items-center gap-2 flex-1 max-w-md">
+            <label className="sr-only" htmlFor="test-email-recipient">Recipient email</label>
             <input
+              id="test-email-recipient"
               type="email"
               value={testEmail}
               onChange={(e) => setTestEmail(e.target.value)}
-              placeholder="Enter recipient to test email sandbox..."
+              placeholder="Enter an email address to test delivery"
               className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs w-full focus:outline-none focus:ring-1 focus:ring-royal"
+              autoComplete="email"
               required
             />
             <button
               type="submit"
-              className="px-3 py-1.5 rounded-lg bg-royal text-white font-bold hover:bg-royal-hover flex items-center gap-1 shrink-0"
+              disabled={isSendingTest}
+              className="px-3 py-1.5 rounded-lg bg-royal text-white font-bold hover:bg-royal-hover disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 shrink-0"
             >
               <Send className="w-3 h-3" />
-              <span>Send Test</span>
+              <span>{isSendingTest ? 'Sending…' : 'Send Test'}</span>
             </button>
           </form>
 
           {testSuccess && (
-            <span className="text-emerald-600 font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Enqueued successfully!
+            <span className="text-emerald-700 font-bold flex items-center gap-1" role="status">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Email accepted. Check the outbox for its status.
             </span>
           )}
+          {testError && <span className="text-rose-700 font-semibold" role="alert">{testError}</span>}
 
           <div className="text-slate-500 font-medium">
             Total Jobs: <strong>{jobs.length}</strong>
@@ -135,9 +177,9 @@ export const OutboxInspectorModal: React.FC<OutboxInspectorModalProps> = ({ isOp
                       {job.recipientEmail}
                     </span>
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                      job.status === 'DELIVERED'
+                      job.status === 'DELIVERED' || job.status === 'SENT'
                         ? 'bg-emerald-100 text-emerald-700'
-                        : job.status === 'QUEUED'
+                        : job.status === 'QUEUED' || job.status === 'PROCESSING'
                         ? 'bg-amber-100 text-amber-700'
                         : 'bg-rose-100 text-rose-700'
                     }`}>
@@ -168,7 +210,7 @@ export const OutboxInspectorModal: React.FC<OutboxInspectorModalProps> = ({ isOp
                       </span>
                       <h4 className="font-bold text-slate-900 text-sm mt-0.5">{selectedJob.subject}</h4>
                     </div>
-                    {selectedJob.status !== 'DELIVERED' && (
+                    {selectedJob.status === 'FAILED' && (
                       <button
                         onClick={() => handleRetry(selectedJob.id)}
                         className="px-2.5 py-1 text-xs font-bold text-royal bg-blue-100 hover:bg-blue-200 rounded-lg flex items-center gap-1"

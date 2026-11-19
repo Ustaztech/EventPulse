@@ -210,7 +210,7 @@ export const HomePage: React.FC = () => {
             <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
               Be the first to publish a campus symposium, faculty workshop, sports tournament, or cultural day for the campus community.
             </p>
-            {currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'ORGANIZER') ? (
+            {currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ORGANIZER') ? (
               <Link
                 to="/dashboard/organizer?action=new"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-royal to-teal text-white font-bold text-xs shadow-md"

@@ -16,10 +16,11 @@ import { useAuth } from '../lib/AuthContext';
 
 interface EventCardProps {
   event: Event;
+  distanceKm?: number;
   onBookmarkChanged?: () => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onBookmarkChanged }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, distanceKm, onBookmarkChanged }) => {
   const { currentUser } = useAuth();
   const [isBookmarked, setIsBookmarked] = useState<boolean>(() => {
     if (!currentUser) return false;
@@ -121,6 +122,11 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onBookmarkChanged }
             <span className="line-clamp-1 font-medium">
               {event.venueName || 'Main Campus Venue'}
               {event.buildingHall ? `, ${event.buildingHall}` : ''}
+              {distanceKm != null && (
+                <span className="ml-1 shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-teal-950/60 dark:text-teal-200">
+                  {distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m away` : `${distanceKm.toFixed(1)} km away`}
+                </span>
+              )}
             </span>
           </div>
 

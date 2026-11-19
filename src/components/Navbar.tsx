@@ -4,14 +4,11 @@ import {
   Bell, 
   User as UserIcon, 
   LogOut, 
-  Shield, 
-  PlusCircle, 
   Menu, 
   X, 
   Layers,
   ChevronDown,
   ShieldAlert,
-  Ticket,
   MapPin,
   Calendar,
   Sparkles,
@@ -25,6 +22,7 @@ import { BrandLogo } from './BrandLogo';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { ThemeToggle } from '../lib/ThemeContext';
+import { canAccessAdmin } from '../lib/rbac';
 
 export const Navbar: React.FC = () => {
   const { currentUser, unreadCount, logout, refreshUserData } = useAuth();
@@ -35,7 +33,6 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isAdmin = currentUser?.role === 'ADMIN';
 
   const otherNavLinks = [
     { label: 'Explore Events', path: '/explore' },
@@ -46,7 +43,7 @@ export const Navbar: React.FC = () => {
 
   const getDashboardPath = () => {
     if (!currentUser) return '/auth/login';
-    if (currentUser.role === 'ADMIN') return '/dashboard/admin';
+    if (canAccessAdmin(currentUser)) return '/dashboard/admin';
     if (currentUser.role === 'ORGANIZER') return '/dashboard/organizer';
     return '/dashboard/student';
   };
@@ -283,22 +280,9 @@ export const Navbar: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : (
-            <Link
-              to={getDashboardPath()}
-              className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                location.pathname.startsWith('/dashboard')
-                  ? 'text-royal dark:text-turquoise bg-blue-50/80 dark:bg-slate-800 font-bold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-royal dark:hover:text-turquoise hover:bg-slate-50 dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <Layers className="w-4 h-4 text-royal dark:text-turquoise" />
-              <span>Dashboard</span>
-            </Link>
-          )}
+          ) : null}
 
-            {/* Other Navigation Links */}
-            {otherNavLinks.map((link) => {
+            {!currentUser && otherNavLinks.map((link) => {
               const isActive = location.pathname === link.path || (link.path.includes('?') && location.search === link.path.split('?')[1]);
               return (
                 <Link
@@ -335,14 +319,15 @@ export const Navbar: React.FC = () => {
                   )}
                 </Link>
 
-                {/* Direct Dashboard Link */}
-                <Link
-                  to={getDashboardPath()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-teal-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 hover:bg-blue-100 transition-all shadow-xs"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Dashboard</span>
-                </Link>
+                {!location.pathname.startsWith('/dashboard') && (
+                  <Link
+                    to={getDashboardPath()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-700 dark:text-teal-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 hover:bg-blue-100 transition-all shadow-xs"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Dashboard</span>
+                  </Link>
+                )}
 
                 {/* User Profile Dropdown Button */}
                 <div className="relative">
@@ -374,46 +359,6 @@ export const Navbar: React.FC = () => {
                       </div>
 
                       <div className="py-1">
-                        {currentUser.role === 'ADMIN' ? (
-                          <>
-                            <Link
-                              to="/dashboard/admin"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-blue-600 dark:text-teal-300 bg-blue-50/50 dark:bg-slate-800/50 hover:bg-blue-50 dark:hover:bg-slate-800"
-                            >
-                              <Shield className="w-4 h-4 text-blue-600 dark:text-teal-300" />
-                              <span>Admin Command Center</span>
-                            </Link>
-                            <Link
-                              to="/dashboard/organizer"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
-                            >
-                              <PlusCircle className="w-4 h-4 text-teal" />
-                              <span>Organizer Workspace</span>
-                            </Link>
-                            <Link
-                              to="/dashboard/student"
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
-                            >
-                              <Ticket className="w-4 h-4 text-slate-400" />
-                              <span>My Registrations & Tickets</span>
-                            </Link>
-                          </>
-                        ) : (
-                          <Link
-                            to={getDashboardPath()}
-                            onClick={() => setProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-teal-300"
-                          >
-                            <Layers className="w-4 h-4 text-slate-400" />
-                            <span>
-                              {currentUser.role === 'ORGANIZER' ? 'Organizer Dashboard' : currentUser.role === 'STAFF' ? 'Staff Dashboard' : 'Student Dashboard'}
-                            </span>
-                          </Link>
-                        )}
-
                         <Link
                           to="/profile"
                           onClick={() => setProfileDropdownOpen(false)}
@@ -441,19 +386,6 @@ export const Navbar: React.FC = () => {
                   )}
                 </div>
 
-                {/* Visible Logout Button on the Right Side */}
-                <button
-                  onClick={() => {
-                    setProfileDropdownOpen(false);
-                    logout();
-                    navigate('/');
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all shadow-xs"
-                  title="Sign out from your account"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Logout</span>
-                </button>
               </>
             ) : (
               <div className="flex items-center gap-2">
@@ -589,7 +521,7 @@ export const Navbar: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : (
+          ) : !location.pathname.startsWith('/dashboard') ? (
             <Link
               to={getDashboardPath()}
               onClick={() => setMobileMenuOpen(false)}
@@ -598,10 +530,10 @@ export const Navbar: React.FC = () => {
               <Layers className="w-5 h-5" />
               <span>Dashboard</span>
             </Link>
-          )}
+          ) : null}
 
           {/* Other Navigation Links */}
-          {otherNavLinks.map((link) => (
+          {!currentUser && otherNavLinks.map((link) => (
             <Link
               key={link.label}
               to={link.path}
@@ -613,45 +545,12 @@ export const Navbar: React.FC = () => {
           ))}
           {currentUser ? (
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
-              {currentUser.role === 'ADMIN' ? (
-                <>
-                  <Link
-                    to="/dashboard/admin"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-base font-bold text-royal dark:text-turquoise bg-blue-50 dark:bg-slate-800"
-                  >
-                    Admin Command Center
-                  </Link>
-                  <Link
-                    to="/dashboard/organizer"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    Organizer Workspace
-                  </Link>
-                  <Link
-                    to="/dashboard/student"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="block px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    My Registrations & Tickets
-                  </Link>
-                </>
-              ) : (
-                <Link
-                  to={getDashboardPath()}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2 rounded-lg text-base font-bold text-royal dark:text-turquoise bg-blue-50 dark:bg-slate-800"
-                >
-                  Go to Dashboard
-                </Link>
-              )}
               <Link
                 to="/profile"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300"
               >
-                Notification Preferences
+                Profile & Settings
               </Link>
               <button
                 onClick={() => {

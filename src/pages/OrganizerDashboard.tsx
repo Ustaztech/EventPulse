@@ -27,6 +27,7 @@ import {
   Edit
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import { canAccessAdmin } from '../lib/rbac';
 import { db } from '../lib/storage';
 import { api } from '../lib/api';
 import { Event, TargetAudience, EventFormat } from '../lib/types';
@@ -89,7 +90,7 @@ export const OrganizerDashboard: React.FC = () => {
   const [accessibilityInfo, setAccessibilityInfo] = useState('Wheelchair accessible entry.');
   const [arrivalInstructions, setArrivalInstructions] = useState('Please arrive 15 minutes before scheduled start time.');
 
-  if (!currentUser || (currentUser.role !== 'ORGANIZER' && currentUser.role !== 'ADMIN')) {
+  if (!currentUser || (currentUser.role !== 'ORGANIZER' && !canAccessAdmin(currentUser))) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
         <h2 className="text-2xl font-black text-slate-800">Organiser Access Required</h2>
@@ -104,7 +105,7 @@ export const OrganizerDashboard: React.FC = () => {
   }
 
   const allEvents = db.getEvents();
-  const myEvents = currentUser.role === 'ADMIN' 
+  const myEvents = canAccessAdmin(currentUser)
     ? allEvents 
     : allEvents.filter(e => e.organizerId === currentUser.id);
 
@@ -172,7 +173,7 @@ export const OrganizerDashboard: React.FC = () => {
         accessibilityInfo,
         arrivalInstructions,
         asDraft,
-        status: asDraft ? 'DRAFT' : (currentUser.role === 'ADMIN' ? 'PUBLISHED' : 'PENDING_APPROVAL')
+        status: asDraft ? 'DRAFT' : (canAccessAdmin(currentUser) ? 'PUBLISHED' : 'PENDING_APPROVAL')
       });
 
       await refreshUserData();
@@ -180,7 +181,7 @@ export const OrganizerDashboard: React.FC = () => {
         type: 'success',
         message: asDraft 
           ? 'Event saved as Draft!' 
-          : currentUser.role === 'ADMIN' 
+          : canAccessAdmin(currentUser)
           ? 'Event published successfully! Active for registrations.' 
           : 'Event proposal submitted for Administrator approval!'
       });
@@ -960,7 +961,7 @@ export const OrganizerDashboard: React.FC = () => {
               >
                 {isSubmitting 
                   ? 'Submitting...' 
-                  : currentUser.role === 'ADMIN' 
+                  : canAccessAdmin(currentUser)
                   ? 'Publish Event Directly' 
                   : 'Submit for Admin Approval'}
               </button>

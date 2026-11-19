@@ -4,6 +4,8 @@
  * Never relies on browser localStorage as the authoritative record store.
  */
 
+import { supabase } from './supabase';
+
 const TOKEN_KEY = 'eventpulse_auth_token';
 
 export function getStoredToken(): string | null {
@@ -20,7 +22,11 @@ export function setStoredToken(token: string | null, rememberMe = true): void {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getStoredToken();
+  const storedToken = getStoredToken();
+  const { data: sessionData } = storedToken
+    ? { data: { session: null } }
+    : await supabase?.auth.getSession() ?? { data: { session: null } };
+  const token = storedToken || sessionData.session?.access_token || null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
@@ -278,6 +284,12 @@ export const api = {
 
   async getAdminOutbox() {
     return request<{ outbox: any[] }>('/api/admin/outbox');
+  },
+
+  async retryOutboxJob(jobId: string) {
+    return request<{ success: boolean; message: string }>(`/api/admin/outbox/${encodeURIComponent(jobId)}/retry`, {
+      method: 'POST',
+    });
   },
 
   async sendMail(payload: { to: string; recipientName?: string; subject: string; html: string; text?: string; category?: string }) {

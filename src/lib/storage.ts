@@ -13,17 +13,16 @@ import {
   NotificationPreferences 
 } from './types';
 import { CATEGORY_DEFINITIONS } from './nsuk-data';
-import { api, getStoredToken } from './api';
+import { api } from './api';
 import { supabase } from './supabase';
 import { DEMO_EVENTS } from './seed-events';
 
-function mapAuthUser(user: any): User {
+function mapAuthUser(user: any, profile?: { role?: string; user_type?: string }): User {
   const metadata = user.user_metadata || {};
-  const userType = metadata.userType === 'STAFF' || metadata.user_type === 'STAFF' ? 'STAFF' : 'STUDENT';
-  const trustedRole = user.app_metadata?.role;
-  const role = trustedRole === 'ADMIN' || trustedRole === 'ORGANIZER'
-    ? trustedRole
-    : userType;
+  const userTypeValue = profile?.user_type || metadata.userType || metadata.user_type;
+  const userType = ['STUDENT', 'STAFF', 'ALUMNI', 'EXTERNAL'].includes(userTypeValue) ? userTypeValue : 'STUDENT';
+  const trustedRole = profile?.role || user.app_metadata?.role;
+  const role = ['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN'].includes(trustedRole) ? trustedRole : userType;
 
   return {
     id: user.id,
@@ -93,7 +92,23 @@ class EventPulseStorage {
   public async syncFromBackend(): Promise<void> {
     try {
       const { data } = await supabase?.auth.getUser() ?? { data: { user: null } };
-      this.currentUser = data.user ? mapAuthUser(data.user) : null;
+      if (data.user) {
+        const { data: profile } = await supabase
+          ?.from('profiles')
+          .select('role, user_type, display_name, faculty, department, phone')
+          .eq('id', data.user.id)
+          .maybeSingle() ?? { data: null };
+        const mapped = mapAuthUser(data.user, profile || undefined);
+        this.currentUser = {
+          ...mapped,
+          name: profile?.display_name || mapped.name,
+          faculty: profile?.faculty || mapped.faculty,
+          department: profile?.department || mapped.department,
+          phone: profile?.phone || mapped.phone,
+        };
+      } else {
+        this.currentUser = null;
+      }
 
       const eventsRes = await api.getEvents({ includeDrafts: true });
       if (eventsRes?.events?.length) {
@@ -116,7 +131,7 @@ class EventPulseStorage {
       }
 
       // 4. If signed in, fetch user registrations, notifications, and preferences
-      if (this.currentUser && getStoredToken()) {
+      if (this.currentUser) {
         const regsRes = await api.getMyRegistrations().catch(() => ({ registrations: [] }));
         if (regsRes?.registrations) {
           this.registrations = regsRes.registrations.map(this.mapRegRow);
@@ -150,7 +165,7 @@ class EventPulseStorage {
         }
 
         // If admin, fetch admin records
-        if (this.currentUser.role === 'ADMIN') {
+        if ((this.currentUser.role === 'ADMIN' || this.currentUser.role === 'SUPER_ADMIN')) {
           const [appsRes, outboxRes, logsRes, usersRes] = await Promise.all([
             api.getOrganizerApplications().catch(() => ({ applications: [] })),
             api.getAdminOutbox().catch(() => ({ outbox: [] })),
