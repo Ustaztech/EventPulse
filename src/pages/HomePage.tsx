@@ -230,7 +230,7 @@ export const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {upcomingEvents.slice(0, 6).map((event) => (
+            {upcomingEvents.slice(0, 7).map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>
