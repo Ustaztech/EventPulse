@@ -112,7 +112,7 @@ export const EmailBroadcastHub: React.FC<EmailBroadcastHubProps> = ({
       return users.filter(u => u.role === 'ORGANIZER').map(u => ({ email: u.email, name: u.name }));
     }
     if (targetAudience === 'ADMINS') {
-      return users.filter(u => u.role === 'ADMIN').map(u => ({ email: u.email, name: u.name }));
+      return users.filter(u => (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')).map(u => ({ email: u.email, name: u.name }));
     }
     if (targetAudience === 'EVENT_ATTENDEES') {
       const regs = db.getRegistrations().filter(r => r.eventId === selectedEventId && r.status === 'CONFIRMED');

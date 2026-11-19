@@ -25,6 +25,7 @@ import { BrandLogo } from './BrandLogo';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/storage';
 import { ThemeToggle } from '../lib/ThemeContext';
+import { canAccessAdmin } from '../lib/rbac';
 
 export const Navbar: React.FC = () => {
   const { currentUser, unreadCount, logout, refreshUserData } = useAuth();
@@ -35,7 +36,7 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isAdmin = currentUser?.role === 'ADMIN';
+  const isAdmin = canAccessAdmin(currentUser);
 
   const otherNavLinks = [
     { label: 'Explore Events', path: '/explore' },
@@ -46,7 +47,7 @@ export const Navbar: React.FC = () => {
 
   const getDashboardPath = () => {
     if (!currentUser) return '/auth/login';
-    if (currentUser.role === 'ADMIN') return '/dashboard/admin';
+    if (canAccessAdmin(currentUser)) return '/dashboard/admin';
     if (currentUser.role === 'ORGANIZER') return '/dashboard/organizer';
     return '/dashboard/student';
   };
@@ -374,7 +375,7 @@ export const Navbar: React.FC = () => {
                       </div>
 
                       <div className="py-1">
-                        {currentUser.role === 'ADMIN' ? (
+                        {canAccessAdmin(currentUser) ? (
                           <>
                             <Link
                               to="/dashboard/admin"
@@ -613,7 +614,7 @@ export const Navbar: React.FC = () => {
           ))}
           {currentUser ? (
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
-              {currentUser.role === 'ADMIN' ? (
+              {canAccessAdmin(currentUser) ? (
                 <>
                   <Link
                     to="/dashboard/admin"

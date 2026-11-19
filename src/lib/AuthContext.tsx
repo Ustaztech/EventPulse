@@ -53,8 +53,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const user = db.setAuthenticatedUser(session?.user ?? null);
       if (!active) return;
       setCurrentUser(user);
-      if (user) updateUnread(user.id);
-      else setUnreadCount(0);
+      if (user) {
+        void db.syncFromBackend().then(() => {
+          if (!active) return;
+          const refreshedUser = db.getCurrentUser();
+          setCurrentUser(refreshedUser);
+          if (refreshedUser) updateUnread(refreshedUser.id);
+        });
+      } else {
+        setUnreadCount(0);
+      }
     }) ?? { data: { subscription: null } };
 
     return () => {

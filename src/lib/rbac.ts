@@ -13,14 +13,14 @@ export function hasRole(user: User | null | undefined, allowedRoles: Role[]): bo
  * Strictly checks the cryptographically verified role.
  */
 export function canAccessAdmin(user: User | null | undefined): boolean {
-  return user?.role === 'ADMIN';
+  return user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 }
 
 /**
  * Can user access Organizer Workspace and event management actions.
  */
 export function canAccessOrganizer(user: User | null | undefined): boolean {
-  return user?.role === 'ORGANIZER' || user?.role === 'ADMIN';
+  return user?.role === 'ORGANIZER' || canAccessAdmin(user);
 }
 
 /**

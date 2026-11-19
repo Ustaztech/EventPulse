@@ -1,4 +1,4 @@
-export type Role = 'STUDENT' | 'STAFF' | 'ORGANIZER' | 'ADMIN';
+export type Role = 'STUDENT' | 'STAFF' | 'ORGANIZER' | 'ADMIN' | 'SUPER_ADMIN';
 export type UserType = 'STUDENT' | 'STAFF' | 'ALUMNI' | 'EXTERNAL';
 export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type TargetAudience = 'UNIVERSITY_WIDE' | 'FACULTY' | 'DEPARTMENT' | 'INTEREST';
