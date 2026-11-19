@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Mail, Lock, ArrowRight, AlertCircle, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
-import { api } from '../lib/api';
 import { useAuth } from '../lib/AuthContext';
+import { supabase } from '../lib/supabase';
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialEmail = searchParams.get('email') || '';
@@ -17,6 +17,12 @@ export const VerifyEmailPage: React.FC = () => {
   const navigate = useNavigate();
   const { refreshUserData } = useAuth();
 
+  React.useEffect(() => {
+    supabase?.auth.getSession().then(({ data }) => {
+      if (data.session?.user.email_confirmed_at) setVerified(true);
+    });
+  }, []);
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -27,17 +33,19 @@ export const VerifyEmailPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const res = await api.verifyEmail(code.trim(), email.trim() || undefined);
+      if (!supabase) throw new Error('Email verification is not configured.');
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: code.trim(),
+        type: 'signup',
+      });
+      if (verifyError) throw verifyError;
       setIsLoading(false);
-      if (res.success) {
-        setVerified(true);
-        await refreshUserData();
-        setTimeout(() => {
-          navigate('/dashboard/student');
-        }, 2000);
-      } else {
-        setError(res.message || 'Verification failed. Please check the code.');
-      }
+      setVerified(true);
+      await refreshUserData();
+      setTimeout(() => {
+        navigate('/dashboard/student');
+      }, 2000);
     } catch (err: any) {
       setIsLoading(false);
       setError(err?.message || 'Invalid or expired confirmation code.');
@@ -50,8 +58,14 @@ export const VerifyEmailPage: React.FC = () => {
       return;
     }
     try {
-      await api.forgotPassword(email);
-      setResendStatus('Verification instructions have been re-dispatched to your email.');
+      if (!supabase) throw new Error('Email verification is not configured.');
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        options: { emailRedirectTo: `${window.location.origin}/auth/verify` },
+      });
+      if (resendError) throw resendError;
+      setResendStatus('If an account is pending verification, a new confirmation email will arrive shortly.');
       setTimeout(() => setResendStatus(null), 5000);
     } catch (err: any) {
       setError(err?.message || 'Failed to re-dispatch verification email.');
@@ -146,6 +160,17 @@ export const VerifyEmailPage: React.FC = () => {
 export const ResetPasswordPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
+
+  React.useEffect(() => {
+    if (!supabase) return;
+    const recoveryHash = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+    if (recoveryHash) setHasRecoverySession(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setHasRecoverySession(true);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Step 1: Request reset link state
   const [email, setEmail] = useState('');
@@ -168,7 +193,12 @@ export const ResetPasswordPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await api.forgotPassword(email.trim());
+      if (!supabase) throw new Error('Password recovery is not configured.');
+      const { error: resetRequestError } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        { redirectTo: `${window.location.origin}/auth/reset-password` },
+      );
+      if (resetRequestError) throw resetRequestError;
       setIsLoading(false);
       setRequestSent(true);
     } catch (err: any) {
@@ -192,23 +222,22 @@ export const ResetPasswordPage: React.FC = () => {
       return;
     }
 
-    if (!token) {
-      setError('Missing recovery token.');
+    if (!supabase || (!token && !hasRecoverySession)) {
+      setError('This recovery link is invalid or expired. Please request a new one.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await api.resetPassword(token, newPassword);
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
       setIsLoading(false);
-      if (res.success) {
-        setResetCompleted(true);
-      } else {
-        setError(res.message || 'Failed to update password.');
-      }
+      setResetCompleted(true);
+      setHasRecoverySession(false);
+      await supabase.auth.signOut();
     } catch (err: any) {
       setIsLoading(false);
-      setError(err?.message || 'Invalid or expired password reset link. Please request a new one.');
+      setError(err?.message || 'Unable to update your password. Request a new recovery email and try again.');
     }
   };
 
@@ -218,11 +247,11 @@ export const ResetPasswordPage: React.FC = () => {
         <div className="text-center space-y-2">
           <BrandLogo size="lg" className="justify-center" />
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-4">
-            {token ? 'Create New Password' : 'Reset Your Password'}
+            {token || hasRecoverySession ? 'Create New Password' : 'Reset Your Password'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {token 
-              ? 'Enter your new credentials below to restore account access.' 
+            {token || hasRecoverySession
+              ? 'Enter your new credentials below to restore account access.'
               : 'Enter your registered email to receive a secure, single-use password recovery link.'
             }
           </p>
@@ -254,8 +283,8 @@ export const ResetPasswordPage: React.FC = () => {
                 </Link>
               </div>
             </div>
-          ) : token ? (
-            /* STEP 2 FORM: User clicked link with ?token=... */
+          ) : token || hasRecoverySession ? (
+            /* STEP 2 FORM: User opened a valid Supabase recovery session. */
             <form onSubmit={handleResetSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200">New Password</label>

@@ -14,11 +14,36 @@ import {
 } from './types';
 import { CATEGORY_DEFINITIONS } from './nsuk-data';
 import { api, getStoredToken } from './api';
+import { supabase } from './supabase';
+import { DEMO_EVENTS } from './seed-events';
+
+function mapAuthUser(user: any): User {
+  const metadata = user.user_metadata || {};
+  const userType = metadata.userType === 'STAFF' || metadata.user_type === 'STAFF' ? 'STAFF' : 'STUDENT';
+  const trustedRole = user.app_metadata?.role;
+  const role = trustedRole === 'ADMIN' || trustedRole === 'ORGANIZER'
+    ? trustedRole
+    : userType;
+
+  return {
+    id: user.id,
+    name: metadata.name || metadata.full_name || user.email?.split('@')[0] || 'Campus member',
+    email: user.email || '',
+    role,
+    userType,
+    matricOrStaffId: metadata.matricOrStaffId,
+    faculty: metadata.faculty,
+    department: metadata.department,
+    phone: metadata.phone,
+    emailVerified: Boolean(user.email_confirmed_at),
+    createdAt: user.created_at || new Date().toISOString(),
+  };
+}
 
 // Memory cache for immediate UI rendering and reactivity
 class EventPulseStorage {
   private users: User[] = [];
-  private events: Event[] = [];
+  private events: Event[] = [...DEMO_EVENTS];
   private categories: Category[] = CATEGORY_DEFINITIONS.map((c, i) => ({
     id: `cat-${i + 1}`,
     name: c.name,
@@ -61,44 +86,20 @@ class EventPulseStorage {
       legacyKeys.forEach(k => localStorage.removeItem(k));
     }
 
+    api.logout();
     await this.syncFromBackend();
   }
 
   public async syncFromBackend(): Promise<void> {
     try {
-      // 1. Fetch current authenticated user if token exists
-      const token = getStoredToken();
-      if (token) {
-        try {
-          const meRes = await api.getMe();
-          if (meRes.user) {
-            this.currentUser = {
-              id: meRes.user.id,
-              name: meRes.user.name,
-              email: meRes.user.email,
-              role: meRes.user.role,
-              userType: meRes.user.userType || 'STUDENT',
-              matricOrStaffId: meRes.user.matricOrStaffId,
-              faculty: meRes.user.faculty,
-              department: meRes.user.department,
-              phone: meRes.user.phone,
-              avatarUrl: meRes.user.avatarUrl,
-              emailVerified: meRes.user.emailVerified,
-              createdAt: meRes.user.createdAt,
-            };
-          }
-        } catch (error: any) {
-          if (error?.status === 401) {
-            this.currentUser = null;
-            api.logout();
-          }
-        }
-      }
+      const { data } = await supabase?.auth.getUser() ?? { data: { user: null } };
+      this.currentUser = data.user ? mapAuthUser(data.user) : null;
 
-      // 2. Fetch published and available events from shared database
       const eventsRes = await api.getEvents({ includeDrafts: true });
-      if (eventsRes?.events) {
+      if (eventsRes?.events?.length) {
         this.events = eventsRes.events.map(this.mapEventRow);
+      } else {
+        this.events = [...DEMO_EVENTS];
       }
 
       // 3. Fetch categories
@@ -115,7 +116,7 @@ class EventPulseStorage {
       }
 
       // 4. If signed in, fetch user registrations, notifications, and preferences
-      if (this.currentUser) {
+      if (this.currentUser && getStoredToken()) {
         const regsRes = await api.getMyRegistrations().catch(() => ({ registrations: [] }));
         if (regsRes?.registrations) {
           this.registrations = regsRes.registrations.map(this.mapRegRow);
@@ -306,6 +307,11 @@ class EventPulseStorage {
     return this.currentUser;
   }
 
+  public setAuthenticatedUser(user: any | null): User | null {
+    this.currentUser = user ? mapAuthUser(user) : null;
+    return this.currentUser;
+  }
+
   public setCurrentUser(user: User | null): void {
     this.currentUser = user;
     if (!user) {
@@ -315,28 +321,15 @@ class EventPulseStorage {
 
   public async login(email: string, password: string, rememberMe?: boolean): Promise<{ user?: User; error?: string }> {
     try {
-      const res = await api.login(email, password, rememberMe);
-      if (res.user) {
-        this.currentUser = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          role: res.user.role,
-          userType: res.user.userType || 'STUDENT',
-          matricOrStaffId: res.user.matricOrStaffId,
-          faculty: res.user.faculty,
-          department: res.user.department,
-          phone: res.user.phone,
-          avatarUrl: res.user.avatarUrl,
-          emailVerified: res.user.emailVerified,
-          createdAt: res.user.createdAt,
-        };
-        await this.syncFromBackend();
-        return { user: this.currentUser };
-      }
-      return { error: 'Authentication failed' };
+      if (!supabase) return { error: 'Authentication is not configured for this deployment.' };
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      if (error) return { error: error.message };
+      if (!data.user) return { error: 'Invalid email or password.' };
+      this.currentUser = mapAuthUser(data.user);
+      await this.syncFromBackend();
+      return { user: this.currentUser };
     } catch (err: any) {
-      return { error: err?.message || 'Login failed' };
+      return { error: err?.message || 'Unable to sign in right now.' };
     }
   }
 
@@ -373,27 +366,28 @@ class EventPulseStorage {
     phone?: string;
   }): Promise<{ user?: User; error?: string }> {
     try {
-      const res = await api.register(userData);
-      if (res.user) {
-        this.currentUser = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          role: res.user.role,
-          userType: res.user.userType,
-          matricOrStaffId: res.user.matricOrStaffId,
-          faculty: res.user.faculty,
-          department: res.user.department,
-          phone: res.user.phone,
-          emailVerified: false,
-          createdAt: res.user.createdAt,
-        };
-        await this.syncFromBackend();
-        return { user: this.currentUser };
-      }
-      return { error: 'Registration failed' };
+      if (!supabase) return { error: 'Authentication is not configured for this deployment.' };
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/verify?email=${encodeURIComponent(userData.email.trim().toLowerCase())}`, 
+          data: {
+            name: userData.name.trim(),
+            userType: userData.userType,
+            matricOrStaffId: userData.matricOrStaffId,
+            faculty: userData.faculty,
+            department: userData.department,
+            phone: userData.phone,
+          },
+        },
+      });
+      if (error) return { error: error.message };
+      if (!data.user) return { error: 'Unable to create your account. Please try again.' };
+      this.currentUser = data.session ? mapAuthUser(data.user) : null;
+      return { user: mapAuthUser(data.user) };
     } catch (err: any) {
-      return { error: err?.message || 'Registration failed' };
+      return { error: err?.message || 'Unable to create your account right now.' };
     }
   }
 

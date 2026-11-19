@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from './types';
 import { db } from './storage';
+import { supabase } from './supabase';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -40,13 +41,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let active = true;
     db.init().then(() => {
+      if (!active) return;
       const user = db.getCurrentUser();
       setCurrentUser(user);
-      if (user) {
-        updateUnread(user.id);
-      }
+      if (user) updateUnread(user.id);
     });
+
+    const { data: { subscription } } = supabase?.auth.onAuthStateChange((_event, session) => {
+      const user = db.setAuthenticatedUser(session?.user ?? null);
+      if (!active) return;
+      setCurrentUser(user);
+      if (user) updateUnread(user.id);
+      else setUnreadCount(0);
+    }) ?? { data: { subscription: null } };
+
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, pass: string, rememberMe?: boolean) => {
@@ -70,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    void supabase?.auth.signOut();
     db.setCurrentUser(null);
     setCurrentUser(null);
     setUnreadCount(0);
@@ -87,8 +102,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }) => {
     const res = await db.registerUser(userData);
     if (res.user) {
-      setCurrentUser(res.user);
-      updateUnread(res.user.id);
+      if (res.user.emailVerified) {
+        setCurrentUser(res.user);
+        updateUnread(res.user.id);
+      }
       return { success: true, user: res.user };
     }
     return { success: false, error: res.error };
