@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthReady: boolean;
   unreadCount: number;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
-  adminLogin: (email: string, password: string, mfaCode?: string) => Promise<{ success: boolean; error?: string }>;
+  adminLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   register: (userData: {
     name: string;
@@ -87,8 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, error: res.error };
   };
 
-  const adminLogin = async (email: string, pass: string, mfaCode?: string) => {
-    const res = await db.adminLogin(email, pass, mfaCode);
+  const adminLogin = async (email: string, pass: string) => {
+    const res = await db.adminLogin(email, pass);
     if (res.user) {
       setCurrentUser(res.user);
       updateUnread(res.user.id);

@@ -338,7 +338,12 @@ class EventPulseStorage {
     try {
       if (!supabase) return { error: 'Authentication is not configured for this deployment.' };
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.code === 'email_not_confirmed') return { error: 'Please verify your email address before signing in.' };
+        if (error.status === 429) return { error: 'Too many sign-in attempts. Please wait and try again.' };
+        if (error.code === 'invalid_credentials' || error.status === 400) return { error: 'Invalid email or password.' };
+        return { error: 'Unable to sign in right now. Please try again.' };
+      }
       if (!data.user) return { error: 'Invalid email or password.' };
       this.currentUser = mapAuthUser(data.user);
       await this.syncFromBackend();
@@ -410,7 +415,12 @@ class EventPulseStorage {
           },
         },
       });
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.code === 'weak_password' || error.code === 'invalid_email' || error.status === 429) {
+          return { error: error.message };
+        }
+        return { error: 'Unable to create your account. Check your details or try signing in.' };
+      }
       if (!data.user) return { error: 'Unable to create your account. Please try again.' };
       this.currentUser = data.session ? mapAuthUser(data.user) : null;
       return { user: mapAuthUser(data.user) };
