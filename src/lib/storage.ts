@@ -338,7 +338,12 @@ class EventPulseStorage {
     try {
       if (!supabase) return { error: 'Authentication is not configured for this deployment.' };
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.code === 'email_not_confirmed') return { error: 'Please verify your email address before signing in.' };
+        if (error.status === 429) return { error: 'Too many sign-in attempts. Please wait and try again.' };
+        if (error.code === 'invalid_credentials' || error.status === 400) return { error: 'Invalid email or password.' };
+        return { error: 'Unable to sign in right now. Please try again.' };
+      }
       if (!data.user) return { error: 'Invalid email or password.' };
       this.currentUser = mapAuthUser(data.user);
       await this.syncFromBackend();
@@ -348,25 +353,38 @@ class EventPulseStorage {
     }
   }
 
-  public async adminLogin(email: string, password: string, mfaCode?: string): Promise<{ user?: User; error?: string }> {
+  public async adminLogin(email: string, password: string): Promise<{ user?: User; error?: string }> {
     try {
-      const res = await api.adminLogin(email, password, mfaCode);
-      if (res.user) {
-        this.currentUser = {
-          id: res.user.id,
-          name: res.user.name,
-          email: res.user.email,
-          role: res.user.role,
-          userType: res.user.userType || 'STAFF',
-          emailVerified: true,
-          createdAt: res.user.createdAt,
-        };
-        await this.syncFromBackend();
-        return { user: this.currentUser };
+      if (!supabase) return { error: 'Authentication is not configured for this deployment.' };
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error || !data.user) return { error: 'Invalid email or password.' };
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, user_type, display_name, faculty, department, phone')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileError || !profile || !['ADMIN', 'SUPER_ADMIN'].includes(profile.role)) {
+        await supabase.auth.signOut();
+        this.currentUser = null;
+        return { error: 'Administrator access denied.' };
       }
-      return { error: 'Administrator access denied' };
-    } catch (err: any) {
-      return { error: err?.message || 'Administrator sign-in failed' };
+
+      this.currentUser = {
+        ...mapAuthUser(data.user, profile),
+        name: profile.display_name || mapAuthUser(data.user, profile).name,
+        faculty: profile.faculty || undefined,
+        department: profile.department || undefined,
+        phone: profile.phone || undefined,
+      };
+      await this.syncFromBackend();
+      return { user: this.currentUser };
+    } catch {
+      return { error: 'Administrator sign-in is unavailable right now.' };
     }
   }
 
@@ -397,7 +415,12 @@ class EventPulseStorage {
           },
         },
       });
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.code === 'weak_password' || error.code === 'invalid_email' || error.status === 429) {
+          return { error: error.message };
+        }
+        return { error: 'Unable to create your account. Check your details or try signing in.' };
+      }
       if (!data.user) return { error: 'Unable to create your account. Please try again.' };
       this.currentUser = data.session ? mapAuthUser(data.user) : null;
       return { user: mapAuthUser(data.user) };

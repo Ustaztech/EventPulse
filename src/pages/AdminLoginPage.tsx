@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Lock, Mail, KeyRound, ArrowRight, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { BrandLogo } from '../components/BrandLogo';
 
 export const AdminLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,7 +19,7 @@ export const AdminLoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const res = await adminLogin(email.trim(), password, mfaCode.trim() || undefined);
+      const res = await adminLogin(email.trim(), password);
       setIsLoading(false);
       if (!res.success) {
         setError(res.error || 'Administrator authentication failed.');
@@ -92,25 +91,6 @@ export const AdminLoginPage: React.FC = () => {
                   placeholder="Enter administrator password..."
                   className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-medium placeholder-slate-400 transition-all"
                   required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
-                  Security MFA Code (Optional)
-                </label>
-                <span className="text-[10px] text-slate-400">If enabled on account</span>
-              </div>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value)}
-                  placeholder="6-digit code (e.g. 123456)"
-                  className="w-full pl-10 pr-4 py-3 min-h-[44px] rounded-xl border border-slate-200 dark:border-navy-light/60 bg-white dark:bg-[#0B132B] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 font-mono tracking-wider transition-all"
                 />
               </div>
             </div>
