@@ -22,11 +22,12 @@ export interface MailResult {
 }
 
 export async function sendTransactionalEmail(payload: MailPayload): Promise<MailResult> {
-  const provider = (process.env.EMAIL_PROVIDER || 'resend').toLowerCase();
-  // Read Resend API Key from EVENTPULSE_MAILS_API_KEY (Vercel) or fallback to RESEND_API_KEY
-  const resendApiKey = process.env.EVENTPULSE_MAILS_API_KEY || process.env.RESEND_API_KEY || '';
-  const senderEmail = process.env.SMTP_FROM_EMAIL || 'support@eventpulse.com.ng';
-  const senderName = process.env.SMTP_FROM_NAME || 'EventPulse';
+  const provider = (process.env.EMAIL_PROVIDER || 'resend').trim().toLowerCase();
+  const resendApiKey = (process.env.EVENTPULSE_MAILS_API_KEY || process.env.RESEND_API_KEY || '').trim();
+  const senderEmail = (process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || 'support@eventpulse.com.ng').trim();
+  const senderName = (process.env.RESEND_FROM_NAME || process.env.SMTP_FROM_NAME || 'EventPulse')
+    .replace(/[<>\r\n"]/g, '')
+    .trim();
   const testMode = process.env.EVENTPULSE_EMAIL_TEST_MODE === 'true';
   const testRecipient = process.env.EVENTPULSE_TEST_EMAIL_RECIPIENT?.trim();
   if (testMode && !testRecipient) {
@@ -38,6 +39,24 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
     };
   }
   const deliveryRecipient = testMode ? testRecipient! : payload.to.trim();
+
+  if (provider !== 'resend') {
+    return {
+      success: false,
+      provider: 'sandbox',
+      status: 'FAILED',
+      error: `Email provider "${provider}" is not supported by this delivery engine. Set EMAIL_PROVIDER=resend.`,
+    };
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail) || !senderName) {
+    return {
+      success: false,
+      provider: 'sandbox',
+      status: 'FAILED',
+      error: 'Email sender configuration is invalid. Set a valid RESEND_FROM_EMAIL and RESEND_FROM_NAME.',
+    };
+  }
 
   const cleanText = payload.bodyText || payload.bodyHtml.replace(/<[^>]*>?/gm, '').trim();
   const brandedHtml = `
@@ -55,9 +74,7 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
   // 1. Live Resend Provider
   if (resendApiKey && resendApiKey.trim().length > 0) {
     try {
-      const fromAddress = senderEmail.includes('@')
-        ? `${senderName} <${senderEmail}>`
-        : `${senderName} <onboarding@resend.dev>`;
+      const fromAddress = `${senderName} <${senderEmail}>`;
 
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -74,9 +91,9 @@ export async function sendTransactionalEmail(payload: MailPayload): Promise<Mail
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
-      if (response.ok && data?.id) {
+      if (response.ok && typeof data?.id === 'string') {
         return {
           success: true,
           provider: 'resend',
