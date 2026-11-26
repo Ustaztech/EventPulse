@@ -132,6 +132,10 @@ async function queueAndSendEmail(client: SupabaseClient, payload: {
 
 export async function handleEventWorkflowRequest(deps: Dependencies): Promise<boolean> {
   const { client, req, res, pathname, method, query, clientIp, getAuthUser, parseBody, sendJson } = deps
+  const categoryList = pathname === '/api/categories' && method === 'GET'
+  const categoryCreate = pathname === '/api/categories' && method === 'POST'
+  const venueList = pathname === '/api/venues' && method === 'GET'
+  const mailSend = pathname === '/api/mail/send' && method === 'POST'
   const eventList = pathname === '/api/events' && method === 'GET'
   const eventDetail = pathname.startsWith('/api/events/') && method === 'GET'
   const createEvent = pathname === '/api/events' && method === 'POST'
@@ -142,13 +146,88 @@ export async function handleEventWorkflowRequest(deps: Dependencies): Promise<bo
   const myRegistrations = pathname === '/api/registrations/my' && method === 'GET'
   const attendees = pathname.startsWith('/api/registrations/event/') && method === 'GET'
   const scan = pathname === '/api/registrations/scan-qr' && method === 'POST'
-  if (!eventList && !eventDetail && !createEvent && !editEvent && !eventStatus && !register && !unregister && !myRegistrations && !attendees && !scan) return false
+  if (!categoryList && !categoryCreate && !venueList && !mailSend && !eventList && !eventDetail && !createEvent && !editEvent && !eventStatus && !register && !unregister && !myRegistrations && !attendees && !scan) return false
   if (!client) {
     sendJson(res, 503, { error: 'Event data service is unavailable.' })
     return true
   }
 
   try {
+    if (categoryList) {
+      const { data, error } = await client.from('categories').select('*').eq('is_active', true).order('name', { ascending: true })
+      if (error) throw error
+      return sendJson(res, 200, { categories: data || [] }), true
+    }
+
+    if (categoryCreate) {
+      const user = await getAuthUser(req)
+      if (!user || !isAdmin(user.role)) return sendJson(res, 403, { error: 'Administrator access required.' }), true
+      const body = await parseBody(req)
+      const name = typeof body.name === 'string' ? body.name.trim() : ''
+      const slug = typeof body.slug === 'string' ? body.slug.trim().toLowerCase() : ''
+      if (!name || !slug) return sendJson(res, 400, { error: 'Category name and slug are required.' }), true
+      const { data, error } = await client.from('categories').insert({
+        name,
+        slug,
+        description: body.description || null,
+        icon: body.icon || null,
+        color: body.color || '#2563eb',
+        is_active: true,
+      }).select('*').single()
+      if (error) throw error
+      return sendJson(res, 201, { success: true, category: data }), true
+    }
+
+    if (venueList) {
+      const { data, error } = await client.from('venues').select('*').eq('is_active', true).order('name', { ascending: true })
+      if (error) throw error
+      return sendJson(res, 200, { venues: data || [] }), true
+    }
+
+    if (mailSend) {
+      const user = await getAuthUser(req)
+      if (!user) return sendJson(res, 401, { error: 'Please sign in again before sending email.' }), true
+      if (!isAdmin(user.role) && user.role !== 'ORGANIZER') return sendJson(res, 403, { error: 'Only administrators and event organizers can send email.' }), true
+      const body = await parseBody(req)
+      const to = typeof body.to === 'string' ? body.to.trim() : ''
+      const subject = typeof body.subject === 'string' ? body.subject.trim() : ''
+      const html = typeof body.html === 'string' ? body.html : ''
+      const text = typeof body.text === 'string' ? body.text : ''
+      const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim().slice(0, 120) : ''
+      const categories = ['welcome', 'new_event', 'approaching', 'happening_now', 'custom', 'ticket', 'security'] as const
+      const category = categories.includes(body.category) ? body.category : 'custom'
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || !subject || subject.length > 200 || !html || html.length > 200_000) {
+        return sendJson(res, 400, { error: 'Enter a valid recipient, a subject under 200 characters, and email content.' }), true
+      }
+      const { data: job, error } = await client.from('email_outbox').insert({
+        recipient_email: to,
+        recipient_name: recipientName || to,
+        subject,
+        body_html: html,
+        body_text: text || html.replace(/<[^>]*>?/gm, '').trim(),
+        notification_type: 'ANNOUNCEMENT',
+        scheduled_for: new Date().toISOString(),
+        status: 'PROCESSING',
+        attempt_count: 1,
+        max_attempts: 3,
+        last_attempt_at: new Date().toISOString(),
+        user_id: user.id,
+        idempotency_key: `mail-send-${user.id}-${Date.now()}-${generateSecureToken(12)}`,
+      }).select('id').single()
+      if (error) throw error
+      const delivery = await sendTransactionalEmail({ to, recipientName, subject, bodyHtml: html, bodyText: text, category })
+      await client.from('email_outbox').update({
+        status: delivery.success ? delivery.status : 'FAILED',
+        provider: delivery.provider,
+        provider_message_id: delivery.providerMessageId,
+        error_message: delivery.error ?? null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', job.id)
+      if (!delivery.success) return sendJson(res, 502, { success: false, jobId: job.id, error: delivery.error || 'The email service could not accept this message.' }), true
+      await audit(client, user, 'MAIL_DISPATCH', 'Email', delivery.providerMessageId || job.id, `Sent email to ${to}: ${subject}`, clientIp)
+      return sendJson(res, 200, { success: true, messageId: delivery.providerMessageId, provider: delivery.provider, jobId: job.id, status: delivery.status }), true
+    }
+
     if (eventList) {
       const user = await getAuthUser(req)
       const includeDrafts = query.get('includeDrafts') === 'true'
@@ -157,6 +236,7 @@ export async function handleEventWorkflowRequest(deps: Dependencies): Promise<bo
       const status = query.get('status')
       if (canViewDrafts && status) request = request.eq('status', status)
       else if (!canViewDrafts) request = request.eq('status', 'PUBLISHED')
+      if (canViewDrafts && user?.role === 'ORGANIZER') request = request.eq('organizer_id', user.id)
       const organizerId = query.get('organizerId')
       if (organizerId && organizerId !== 'all') request = request.eq('organizer_id', organizerId)
       const format = query.get('format')
@@ -409,7 +489,7 @@ export async function handleEventWorkflowRequest(deps: Dependencies): Promise<bo
       if (!user || (user.role !== 'ORGANIZER' && !isAdmin(user.role))) return sendJson(res, 403, { error: 'Only approved organizers or administrators can check in attendees.' }), true
       const body = await parseBody(req)
       const code = typeof body.code === 'string' ? body.code.trim() : ''
-      if (!code) return sendJson(res, 400, { error: 'Ticket code is required.' }), true
+      if (!/^[A-Za-z0-9-]{8,128}$/.test(code)) return sendJson(res, 400, { error: 'Enter a valid ticket code.' }), true
       const { data: registration, error } = await client.from('registrations').select('*, event:events(id,organizer_id,title), profile:profiles(display_name)').or(`qr_token.eq.${code},reference_code.eq.${code}`).maybeSingle()
       if (error) throw error
       if (!registration) return sendJson(res, 404, { error: 'Registration not found.' }), true

@@ -15,7 +15,6 @@ import {
 import { CATEGORY_DEFINITIONS } from './nsuk-data';
 import { api } from './api';
 import { supabase } from './supabase';
-import { DEMO_EVENTS } from './seed-events';
 
 function mapAuthUser(user: any, profile?: { role?: string; user_type?: string }): User {
   const metadata = user.user_metadata || {};
@@ -42,7 +41,7 @@ function mapAuthUser(user: any, profile?: { role?: string; user_type?: string })
 // Memory cache for immediate UI rendering and reactivity
 class EventPulseStorage {
   private users: User[] = [];
-  private events: Event[] = [...DEMO_EVENTS];
+  private events: Event[] = [];
   private categories: Category[] = CATEGORY_DEFINITIONS.map((c, i) => ({
     id: `cat-${i + 1}`,
     name: c.name,
@@ -112,15 +111,15 @@ class EventPulseStorage {
       }
 
       const eventsRes = await api.getEvents({ includeDrafts: true });
-      if (eventsRes?.events?.length) {
+      if (Array.isArray(eventsRes?.events)) {
         this.events = eventsRes.events.map(this.mapEventRow);
       } else {
-        this.events = [...DEMO_EVENTS];
+        this.events = [];
       }
 
       // 3. Fetch categories
       const catRes = await api.getCategories();
-      if (catRes?.categories?.length) {
+      if (Array.isArray(catRes?.categories)) {
         this.categories = catRes.categories.map(c => ({
           id: c.id,
           name: c.name,
@@ -284,8 +283,8 @@ class EventPulseStorage {
       directionsUrl: e.directions_url,
       onlinePlatform: e.online_platform,
       onlineJoinLink: e.online_join_link,
-      restrictJoinLink: e.restrict_join_link === 1,
-      requiresRegistration: e.requires_registration === 1,
+      restrictJoinLink: e.restrict_join_link === true || e.restrict_join_link === 1,
+      requiresRegistration: e.requires_registration === true || e.requires_registration === 1,
       capacity: e.capacity,
       registeredCount: e.registered_count || 0,
       registrationDeadline: e.registration_deadline,
