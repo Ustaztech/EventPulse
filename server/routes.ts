@@ -12,6 +12,7 @@ import {
 } from './auth.js';
 import { scheduler } from './scheduler.js';
 import { sendTransactionalEmail } from './mailer.js';
+import { handleEventWorkflowRequest } from './event-workflows.js';
 
 // Helper to parse JSON body
 function parseBody(req: IncomingMessage): Promise<any> {
@@ -104,8 +105,22 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || '127.0.0.1';
 
   try {
-    // -------------------------------------------------------------
-    // 1. AUTHENTICATION & ACCESS CONTROL
+  const workflowHandled = await handleEventWorkflowRequest({
+    client: supabaseAdmin,
+    req,
+    res,
+    pathname,
+    method,
+    query,
+    clientIp: String(clientIp),
+    getAuthUser,
+    parseBody,
+    sendJson,
+  });
+  if (workflowHandled) return;
+
+  // -------------------------------------------------------------
+  // 1. AUTHENTICATION & ACCESS CONTROL
     // -------------------------------------------------------------
 
     // POST /api/auth/register
