@@ -6,19 +6,16 @@
 
 import { supabase } from './supabase';
 
-const TOKEN_KEY = 'eventpulse_auth_token';
+const LEGACY_TOKEN_KEY = 'eventpulse_auth_token';
 
-export function getStoredToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+export function getStoredToken(): null {
+  return null;
 }
 
-export function setStoredToken(token: string | null, rememberMe = true): void {
+export function setStoredToken(_token: string | null, _rememberMe = true): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(TOKEN_KEY);
-  if (!token) return;
-  (rememberMe ? localStorage : sessionStorage).setItem(TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  sessionStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

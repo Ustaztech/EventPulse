@@ -5,7 +5,6 @@ import {
   hashPassword, 
   verifyPassword, 
   createSessionToken, 
-  verifySessionToken, 
   generateSecureToken, 
   generateVerificationCode, 
   checkRateLimit, 
@@ -65,14 +64,12 @@ function isAdminRole(role: string | undefined): boolean {
   return role === 'ADMIN' || role === 'SUPER_ADMIN';
 }
 
-// Accept both legacy server sessions and verified Supabase access tokens.
+// Authorization is based only on verified Supabase sessions and protected profile roles.
 async function getAuthUser(req: IncomingMessage): Promise<any | null> {
   const authHeader = req.headers['authorization'];
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7).trim();
-  const localSession = verifySessionToken(token);
-  if (localSession.valid) return localSession.payload;
-  if (!supabaseAdmin) return null;
+  if (!token || !supabaseAdmin) return null;
 
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return null;

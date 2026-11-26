@@ -21,8 +21,8 @@ function mapAuthUser(user: any, profile?: { role?: string; user_type?: string })
   const metadata = user.user_metadata || {};
   const userTypeValue = profile?.user_type || metadata.userType || metadata.user_type;
   const userType = ['STUDENT', 'STAFF', 'ALUMNI', 'EXTERNAL'].includes(userTypeValue) ? userTypeValue : 'STUDENT';
-  const trustedRole = profile?.role || user.app_metadata?.role;
-  const role = ['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN'].includes(trustedRole) ? trustedRole : userType;
+  const trustedRole = profile?.role;
+  const role = typeof trustedRole === 'string' && ['STUDENT', 'STAFF', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN'].includes(trustedRole) ? trustedRole : userType;
 
   return {
     id: user.id,
@@ -80,7 +80,8 @@ class EventPulseStorage {
         'eventpulse_logs_prod',
         'eventpulse_feedbacks_prod',
         'eventpulse_preferences_prod',
-        'eventpulse_email_provider_config_v2'
+        'eventpulse_email_provider_config_v2',
+        'eventpulse_auth_token'
       ];
       legacyKeys.forEach(k => localStorage.removeItem(k));
     }
